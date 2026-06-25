@@ -52,8 +52,8 @@ export async function middleware(request: NextRequest) {
   const isRootRoute = pathname === '/';
   const isLoginRoute = pathname === '/login';
 
-  // Rule 1: Unauthenticated user hits any protected route or root page → redirect to /login
-  if (!isAuthenticated && (isProtectedRoute || isRootRoute)) {
+  // Rule 1: Unauthenticated user hits any protected route → redirect to /login
+  if (!isAuthenticated && isProtectedRoute) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
