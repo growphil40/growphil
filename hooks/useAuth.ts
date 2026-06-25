@@ -11,6 +11,22 @@ import {
 // Global promise to deduplicate concurrent refresh requests (e.g. React Strict Mode double mount)
 let globalRefreshPromise: Promise<any> | null = null;
 
+function decodeJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 export function useAuth() {
   const [user, setUserState] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,8 +64,25 @@ export function useAuth() {
       const { accessToken } = response.data.data;
       setAccessToken(accessToken);
       
-      const currentUser = getCurrentUser();
-      setUserState(currentUser);
+      const decoded = decodeJwt(accessToken);
+      if (decoded) {
+        const userPayload: UserSession = {
+          id: decoded.userId,
+          email: decoded.email || getCurrentUser()?.email || '',
+          role: decoded.role,
+          tenantId: decoded.tenantId,
+          tenantType: decoded.tenantType,
+          subscriptionStatus: decoded.subscriptionStatus || null,
+          subscriptionPlan: decoded.subscriptionPlan || null,
+          trialEndDate: decoded.trialEndDate || null,
+          isTrialExpired: decoded.isTrialExpired || false,
+        };
+        setCurrentUser(userPayload);
+        setUserState(userPayload);
+      } else {
+        const currentUser = getCurrentUser();
+        setUserState(currentUser);
+      }
       setError(null);
     } catch (err: any) {
       // Refresh failed, meaning session was either absent or expired
@@ -85,6 +118,10 @@ export function useAuth() {
         role: loggedUser.role,
         tenantId: loggedUser.tenantId,
         tenantType: loggedUser.tenantType,
+        subscriptionStatus: loggedUser.subscriptionStatus || null,
+        subscriptionPlan: loggedUser.subscriptionPlan || null,
+        trialEndDate: loggedUser.trialEndDate || null,
+        isTrialExpired: loggedUser.isTrialExpired || false,
       };
 
       setCurrentUser(userPayload);
@@ -92,9 +129,12 @@ export function useAuth() {
       
       return userPayload;
     } catch (err: any) {
-      const errMsg = err.response?.data?.error?.message || 'Login failed. Please verify credentials.';
+      const errMsg = err.response?.data?.errorDetails?.message || 
+                     err.response?.data?.error?.message || 
+                     (typeof err.response?.data?.error === 'string' ? err.response.data.error : null) || 
+                     'Login failed. Please verify credentials.';
       setError(errMsg);
-      throw new Error(errMsg);
+      throw err; // Propagate original error to allow checking error.response.data.error.code
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../ThemeProvider';
+import { Button } from '@/components/ui/button';
 import {
   BarChart3,
   Settings,
@@ -20,7 +21,9 @@ import {
   Search,
   Layers,
   Building2,
-  Bell
+  Bell,
+  AlertCircle,
+  ArrowRight
 } from 'lucide-react';
 
 export default function AgencyLayout({ children }: { children: React.ReactNode }) {
@@ -54,7 +57,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
       
       {/* ── DESKTOP SIDEBAR ── */}
       <aside 
-        className={`hidden md:flex flex-col justify-between h-full bg-sidebar border-r border-border text-slate-300 shrink-0 select-none transition-all duration-300 relative ${
+        className={`hidden md:flex flex-col justify-between h-full bg-sidebar border-r border-border text-sidebar-foreground shrink-0 select-none transition-all duration-300 relative ${
           isSidebarCollapsed ? 'w-20' : 'w-[280px]'
         }`}
       >
@@ -74,7 +77,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
             </div>
             {!isSidebarCollapsed && (
               <div className="animate-in fade-in slide-in-from-left-2 duration-200">
-                <span className="text-sm font-black tracking-tight text-white block">GrowPhil</span>
+                <span className="text-sm font-black tracking-tight text-sidebar-active block">GrowPhil</span>
                 <span className="text-[9px] text-primary font-bold tracking-wider uppercase block -mt-1">
                   CRM Enterprise
                 </span>
@@ -91,7 +94,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                     GP
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-bold text-white truncate">GrowPhil Agency</p>
+                    <p className="text-[11px] font-bold text-sidebar-active truncate">GrowPhil Agency</p>
                     <p className="text-[9px] text-text-secondary font-medium block -mt-0.5">Primary Org</p>
                   </div>
                 </div>
@@ -131,11 +134,11 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                   } ${
                     isActive
                       ? 'bg-primary/10 text-primary border-primary/20 shadow-md shadow-primary/5'
-                      : 'text-text-secondary border-transparent hover:bg-hover hover:text-white'
+                      : 'text-sidebar-foreground border-transparent hover:bg-hover hover:text-sidebar-active'
                   }`}
                   title={isSidebarCollapsed ? item.name : undefined}
                 >
-                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-text-secondary'}`} />
+                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-sidebar-foreground'}`} />
                   {!isSidebarCollapsed && (
                     <span className="animate-in fade-in duration-200">{item.name}</span>
                   )}
@@ -150,7 +153,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
           {user && !isSidebarCollapsed && (
             <div className="px-2 space-y-0.5 animate-in fade-in duration-200">
               <p className="text-[9px] text-primary font-bold tracking-wider uppercase">User Profile</p>
-              <p className="text-xs font-bold text-white truncate max-w-[200px]" title={user.email}>{user.email}</p>
+              <p className="text-xs font-bold text-sidebar-active truncate max-w-[200px]" title={user.email}>{user.email}</p>
               <p className="text-[8px] text-text-secondary font-semibold tracking-wider uppercase">
                 {user.role.replace('_', ' ')}
               </p>
@@ -172,7 +175,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
       {/* ── MOBILE DRAWER NAVIGATION ── */}
       {isMobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden bg-black/60 backdrop-blur-xs transition-opacity duration-200">
-          <div className="w-64 bg-[#0B0F19] border-r border-border flex flex-col justify-between h-full p-5 animate-in slide-in-from-left duration-250">
+          <div className="w-64 bg-sidebar border-r border-border flex flex-col justify-between h-full p-5 animate-in slide-in-from-left duration-250">
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-8 px-2">
                 <div className="flex items-center gap-3">
@@ -180,7 +183,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                     G
                   </div>
                   <div>
-                    <span className="text-base font-black tracking-tight text-white block">GrowPhil</span>
+                    <span className="text-base font-black tracking-tight text-sidebar-active block">GrowPhil</span>
                     <span className="text-[10px] text-primary font-bold tracking-wider uppercase block -mt-1">
                       Agency Admin
                     </span>
@@ -188,7 +191,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                 </div>
                 <button 
                   onClick={() => setIsMobileOpen(false)} 
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-hover cursor-pointer"
+                  className="text-sidebar-foreground hover:text-sidebar-active p-1 rounded-lg hover:bg-hover cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -210,10 +213,10 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                       className={`flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-premium border ${
                         isActive
                           ? 'bg-primary/10 text-primary border-primary/20 shadow-md shadow-primary/5'
-                          : 'text-slate-450 border-transparent hover:bg-hover hover:text-white'
+                          : 'text-sidebar-foreground border-transparent hover:bg-hover hover:text-sidebar-active'
                       }`}
                     >
-                      <Icon className="h-4.5 w-4.5 text-slate-500" />
+                      <Icon className="h-4.5 w-4.5 text-sidebar-foreground" />
                       {item.name}
                     </Link>
                   );
@@ -225,8 +228,8 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
               {user && (
                 <div className="px-2 space-y-0.5">
                   <p className="text-[10px] text-primary font-bold tracking-wider uppercase">User Profile</p>
-                  <p className="text-xs font-bold text-white truncate">{user.email}</p>
-                  <p className="text-[9px] text-slate-500 font-semibold tracking-wider uppercase">
+                  <p className="text-xs font-bold text-sidebar-active truncate">{user.email}</p>
+                  <p className="text-[9px] text-sidebar-foreground/80 font-semibold tracking-wider uppercase">
                     {user.role.replace('_', ' ')}
                   </p>
                 </div>
@@ -256,7 +259,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
             <div className="flex items-center gap-3.5">
               <button
                 onClick={() => setIsMobileOpen(true)}
-                className="block md:hidden text-text-secondary hover:text-white p-2 rounded-xl hover:bg-hover transition-premium cursor-pointer"
+                className="block md:hidden text-text-secondary hover:text-text-primary p-2 rounded-xl hover:bg-hover transition-premium cursor-pointer"
               >
                 <Menu className="h-5 w-5" />
               </button>
@@ -265,7 +268,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
               <div className="flex items-center gap-2 text-xs font-bold">
                 <span className="text-text-secondary/70 uppercase tracking-widest">Workspace</span>
                 <span className="text-border/60">/</span>
-                <span className="text-white uppercase tracking-widest">{getPageTitle()}</span>
+                <span className="text-text-primary uppercase tracking-widest">{getPageTitle()}</span>
               </div>
             </div>
 
@@ -279,15 +282,15 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
               </div>
 
               {/* Notification Bell */}
-              <button className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-white hover:bg-hover active:scale-95 transition-premium cursor-pointer relative">
+              <button className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-text-primary hover:bg-hover active:scale-95 transition-premium cursor-pointer relative">
                 <Bell size={14} />
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary border-2 border-card" />
               </button>
-
+ 
               {/* Theme Selector */}
               <button
                 onClick={toggleTheme}
-                className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-white hover:bg-hover active:scale-95 transition-premium cursor-pointer"
+                className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-text-primary hover:bg-hover active:scale-95 transition-premium cursor-pointer"
                 title="Toggle Theme"
               >
                 {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
@@ -296,10 +299,81 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
           </div>
         </header>
 
+        {/* Subscription Banners */}
+        {(() => {
+          const subscriptionStatus = user?.subscriptionStatus;
+          const trialEndDate = user?.trialEndDate;
+          const isTrialExpired = user?.isTrialExpired;
+
+          let daysRemaining = 0;
+          if (trialEndDate) {
+            const end = new Date(trialEndDate);
+            const today = new Date();
+            const diff = end.getTime() - today.getTime();
+            daysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+          }
+
+          if (isTrialExpired) {
+            return (
+              <div className="bg-red-500/10 border-b border-red-500/20 text-red-400 p-3.5 px-6 flex items-center justify-between text-xs font-bold animate-in slide-in-from-top duration-300">
+                <div className="flex items-center gap-3">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  <span>Your 45-day free trial has expired. Upgrade your plan to restore full lead sync pipelines and dashboard analytics.</span>
+                </div>
+                <Link href="/agency/settings?tab=billing" className="bg-red-500 text-white hover:bg-red-600 px-3.5 py-1.5 rounded-lg font-bold transition-all text-[11px] shrink-0">
+                  Upgrade Now
+                </Link>
+              </div>
+            );
+          }
+
+          if (subscriptionStatus === 'TRIAL') {
+            return (
+              <div className="bg-primary/10 border-b border-primary/20 text-primary p-3.5 px-6 flex items-center justify-between text-xs font-bold animate-in slide-in-from-top duration-300">
+                <div className="flex items-center gap-3">
+                  <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  <span>You are currently using a 45-day Free Trial of GrowPhil CRM. ({daysRemaining} days remaining)</span>
+                </div>
+                <Link href="/agency/settings?tab=billing" className="bg-primary text-black hover:bg-primary/80 px-3.5 py-1.5 rounded-lg font-bold transition-all text-[11px] shrink-0">
+                  Upgrade Plan
+                </Link>
+              </div>
+            );
+          }
+
+          return null;
+        })()}
+
         {/* Dynamic page viewport content */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-6xl mx-auto min-h-full space-y-6">
-            {children}
+            {(() => {
+              const isTrialExpired = user?.isTrialExpired;
+              const isExpiredRestricted = isTrialExpired && !pathname.startsWith('/agency/settings');
+
+              if (isExpiredRestricted) {
+                return (
+                  <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 border border-border/80 bg-card p-10 rounded-3xl shadow-xl max-w-lg mx-auto mt-12 animate-in zoom-in duration-300">
+                    <div className="h-16 w-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center">
+                      <AlertCircle size={32} />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-white">Your Trial Has Expired</h3>
+                      <p className="text-sm text-muted">
+                        Your 45-day free trial of GrowPhil CRM has expired. To restore lead campaigns, sheets syncs, and database updates, please upgrade to a subscription plan.
+                      </p>
+                    </div>
+                    <Link href="/agency/settings?tab=billing">
+                      <Button className="rounded-xl px-6 py-3 font-bold" icon={<ArrowRight size={14} />}>
+                        Upgrade Subscription
+                      </Button>
+                    </Link>
+                  </div>
+                );
+              }
+
+              return children;
+            })()}
           </div>
         </div>
       </main>

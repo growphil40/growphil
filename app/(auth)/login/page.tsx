@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '../../../hooks/useAuth';
+import { api } from '../../../lib/api';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, Database, Zap, ArrowRight, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../ThemeProvider';
@@ -14,9 +16,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Unverified email states
+  const [isUnverified, setIsUnverified] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsUnverified(false);
+    setResendSuccess(false);
+    setResendError(null);
 
     if (!email || !password) {
       setError('Please enter your email and password.');
@@ -33,7 +45,30 @@ export default function LoginPage() {
         window.location.href = '/';
       }
     } catch (err: any) {
-      // Handled by hook, errors are propagated as authError
+      const errCode = err.response?.data?.code || err.response?.data?.errorDetails?.code || err.response?.data?.error?.code;
+      if (errCode === 'EMAIL_NOT_VERIFIED') {
+        setIsUnverified(true);
+        setUnverifiedEmail(email);
+      }
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResendError(null);
+    setResendSuccess(false);
+
+    try {
+      setResendLoading(true);
+      await api.post('/v1/auth/verify-email/resend', {
+        email: unverifiedEmail,
+      });
+      setResendSuccess(true);
+    } catch (err: any) {
+      setResendError(
+        err.response?.data?.error?.message || 'Failed to resend verification. Please try again.'
+      );
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -129,6 +164,33 @@ export default function LoginPage() {
             </div>
           )}
 
+          {isUnverified && (
+            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 space-y-3 animate-in fade-in zoom-in duration-200 text-center">
+              <p className="text-xs font-bold text-amber-500">
+                Please verify your email before logging in.
+              </p>
+              {resendSuccess ? (
+                <p className="text-[11px] text-emerald-400 font-semibold">
+                  A fresh verification email has been sent. Check your inbox!
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {resendError && (
+                    <p className="text-[10px] text-red-500 font-bold">{resendError}</p>
+                  )}
+                  <Button
+                    onClick={handleResendVerification}
+                    loading={resendLoading}
+                    variant="secondary"
+                    className="w-full py-2.5 rounded-xl text-xs font-bold"
+                  >
+                    Resend Verification Link
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-2">
@@ -145,9 +207,14 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-2">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted">
+                  Password
+                </label>
+                <Link href="/forgot-password" className="text-[11px] text-primary font-bold hover:underline">
+                  Forgot Password?
+                </Link>
+              </div>
               <input
                 type="password"
                 value={password}
@@ -168,12 +235,14 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Quick Demo Logins Box */}
-          <div className="rounded-2xl border border-border/80 bg-muted/5 p-4 text-center text-xs text-muted/90 font-medium space-y-1.5">
-            <p className="text-[10px] text-muted uppercase font-bold tracking-widest mb-1 select-none">Quick Access Credentials</p>
-            <p>Admin: <span className="font-bold text-foreground">admin@growphil.com</span> / <span className="font-mono">admin123</span></p>
-            <p>Client: <span className="font-bold text-foreground">client@company.com</span> / <span className="font-mono">client123</span></p>
+          <div className="text-center text-xs text-muted">
+            Don't have an agency?{' '}
+            <Link href="/register" className="text-primary font-bold hover:underline">
+              Register Here
+            </Link>
           </div>
+
+
         </div>
 
         {/* Mobile copyrighted text */}

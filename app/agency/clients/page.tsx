@@ -96,15 +96,15 @@ export default function ClientsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Client Accounts</h1>
-        <p className="text-slate-400 mt-1">Manage partner accounts and Meta OAuth integrations</p>
+        <p className="text-text-secondary mt-1">Manage partner accounts and Meta OAuth integrations</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Clients List */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-xl border border-slate-900 bg-slate-900/10 backdrop-blur-xl p-6">
+          <div className="rounded-xl border border-border bg-card backdrop-blur-xl p-6">
             {/* Tabs for Active/Archived */}
-            <div className="flex gap-4 mb-6 border-b border-slate-900 pb-3">
+            <div className="flex gap-4 mb-6 border-b border-border pb-3">
               <button
                 type="button"
                 onClick={() => {
@@ -112,7 +112,7 @@ export default function ClientsPage() {
                   fetchClients(false);
                 }}
                 className={`text-sm font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
-                  !showArchived ? 'text-indigo-400 border-indigo-500' : 'text-slate-500 border-transparent hover:text-slate-300'
+                  !showArchived ? 'text-primary border-primary' : 'text-text-secondary border-transparent hover:text-text-primary'
                 }`}
               >
                 Active Clients
@@ -124,17 +124,17 @@ export default function ClientsPage() {
                   fetchClients(true);
                 }}
                 className={`text-sm font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
-                  showArchived ? 'text-indigo-400 border-indigo-500' : 'text-slate-500 border-transparent hover:text-slate-300'
+                  showArchived ? 'text-primary border-primary' : 'text-text-secondary border-transparent hover:text-text-primary'
                 }`}
               >
                 Archived Clients
               </button>
             </div>
 
-            {loading && <p className="text-slate-400 text-sm">Loading client accounts...</p>}
+            {loading && <p className="text-text-secondary text-sm">Loading client accounts...</p>}
             
             {!loading && clients.length === 0 && (
-              <p className="text-slate-500 text-sm">
+              <p className="text-text-secondary text-sm">
                 {showArchived ? 'No archived clients found.' : 'No active clients registered yet. Use the form on the right to register one.'}
               </p>
             )}
@@ -143,32 +143,32 @@ export default function ClientsPage() {
               {clients.map((client) => (
                 <div
                   key={client.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-slate-800 bg-slate-950 hover:border-slate-700 transition-colors"
+                  className="flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:border-border/60 transition-colors"
                 >
                   <div>
-                    <h3 className="font-semibold text-slate-200">{client.businessName}</h3>
-                    <p className="text-xs text-slate-500">{client.email}</p>
+                    <h3 className="font-semibold text-foreground">{client.businessName}</h3>
+                    <p className="text-xs text-text-secondary">{client.email}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span
                       className={`text-xs px-2 py-1 rounded-full border ${
                         client.metaAccessToken
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                       }`}
                     >
                       {client.metaAccessToken ? 'Meta Connected' : 'Meta Pending'}
                     </span>
                     <Link
                       href={`/agency/clients/${client.id}`}
-                      className="text-xs font-semibold text-indigo-400 hover:text-indigo-300"
+                      className="text-xs font-semibold text-primary hover:underline"
                     >
                       {showArchived ? 'View Leads & Details' : 'Manage'}
                     </Link>
                     {!showArchived && (
                       <Link
                         href={`/agency/clients/${client.id}/analytics`}
-                        className="text-xs font-semibold text-[#3B82F6] hover:text-[#068ba2]"
+                        className="text-xs font-semibold text-[#3B82F6] hover:underline"
                       >
                         Analytics
                       </Link>
@@ -177,7 +177,7 @@ export default function ClientsPage() {
                       <button
                         type="button"
                         onClick={() => setClientToDelete(client)}
-                        className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded hover:bg-slate-900 cursor-pointer"
+                        className="text-text-secondary hover:text-rose-600 dark:hover:text-rose-450 transition-colors p-1 rounded hover:bg-hover cursor-pointer"
                         title="Delete Client"
                       >
                         <Trash2 size={15} />
@@ -191,15 +191,15 @@ export default function ClientsPage() {
         </div>
 
         {/* Add Client Form */}
-        <div className="rounded-xl border border-slate-900 bg-slate-900/10 backdrop-blur-xl p-6 h-fit">
+        <div className="rounded-xl border border-border bg-card backdrop-blur-xl p-6 h-fit">
           <h2 className="text-xl font-semibold mb-6">Register Client</h2>
 
           {(error || successMsg) && (
             <div
               className={`mb-6 rounded-lg p-3 text-sm border text-center ${
                 successMsg
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                  : 'bg-red-500/10 border-red-500/20 text-red-400'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-650'
+                  : 'bg-red-500/10 border-red-500/20 text-red-650'
               }`}
             >
               {error || successMsg}
@@ -208,36 +208,36 @@ export default function ClientsPage() {
 
           <form onSubmit={handleCreateClient} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Business Name</label>
+              <label className="block text-xs font-medium text-text-secondary mb-2">Business Name</label>
               <input
                 type="text"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                 placeholder="Acme Corp"
                 disabled={isSubmitting}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Login Email</label>
+              <label className="block text-xs font-medium text-text-secondary mb-2">Login Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                 placeholder="owner@acme.com"
                 disabled={isSubmitting}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">Owner Password</label>
+              <label className="block text-xs font-medium text-text-secondary mb-2">Owner Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                 placeholder="••••••••"
                 disabled={isSubmitting}
               />
@@ -246,7 +246,7 @@ export default function ClientsPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer"
             >
               {isSubmitting ? 'Registering...' : 'Register Account'}
             </button>
@@ -256,15 +256,15 @@ export default function ClientsPage() {
 
       {clientToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border border-slate-900 bg-slate-950 p-6 shadow-2xl relative">
-            <h3 className="text-lg font-semibold text-slate-200 mb-2">Delete Client Account</h3>
-            <p className="text-sm text-slate-400 mb-6">
-              Are you sure you want to delete <span className="font-semibold text-slate-200">{clientToDelete.businessName}</span>?
-              This action will revoke all user login access and integrations for this client, but <span className="font-semibold text-indigo-400">all leads and historical data will be kept</span>.
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl relative">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Delete Client Account</h3>
+            <p className="text-sm text-text-secondary mb-6">
+              Are you sure you want to delete <span className="font-semibold text-foreground">{clientToDelete.businessName}</span>?
+              This action will revoke all user login access and integrations for this client, but <span className="font-semibold text-primary">all leads and historical data will be kept</span>.
             </p>
 
             {deleteError && (
-              <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+              <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-500">
                 {deleteError}
               </div>
             )}
@@ -277,7 +277,7 @@ export default function ClientsPage() {
                   setDeleteError(null);
                 }}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-lg border border-slate-800 text-sm font-medium text-slate-300 hover:bg-slate-900 transition-colors disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-hover transition-colors disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>

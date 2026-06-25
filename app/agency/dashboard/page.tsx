@@ -100,7 +100,7 @@ export default function AgencyDashboardPage() {
       {/* Welcome Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/80 pb-6">
         <div>
-          <h1 className="text-[48px] font-bold text-white tracking-tight leading-none font-display">
+          <h1 className="text-[48px] font-bold text-foreground tracking-tight leading-none font-display">
             Command Center
           </h1>
           <p className="text-text-secondary text-sm mt-2">Unified operations summary and connected node telemetry</p>

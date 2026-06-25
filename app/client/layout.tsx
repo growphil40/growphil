@@ -23,7 +23,9 @@ import {
   Bell,
   LayoutDashboard,
   BarChart3,
-  Settings
+  Settings,
+  AlertCircle,
+  ArrowRight
 } from 'lucide-react';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -71,7 +73,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       
       {/* ── DESKTOP SIDEBAR ── */}
       <aside 
-        className={`hidden md:flex flex-col justify-between h-full bg-sidebar border-r border-border text-slate-300 shrink-0 select-none transition-all duration-300 relative ${
+        className={`hidden md:flex flex-col justify-between h-full bg-sidebar border-r border-border text-sidebar-foreground shrink-0 select-none transition-all duration-300 relative ${
           isSidebarCollapsed ? 'w-20' : 'w-[280px]'
         }`}
       >
@@ -91,7 +93,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </div>
             {!isSidebarCollapsed && (
               <div className="animate-in fade-in slide-in-from-left-2 duration-200">
-                <span className="text-sm font-black tracking-tight text-white block">GrowPhil</span>
+                <span className="text-sm font-black tracking-tight text-sidebar-active block">GrowPhil</span>
                 <span className="text-[9px] text-primary font-bold tracking-wider uppercase block -mt-1">
                   {isSuperAdmin ? 'Super Admin' : 'Partner Portal'}
                 </span>
@@ -108,7 +110,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     PP
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-bold text-white truncate">Partner Portal</p>
+                    <p className="text-[11px] font-bold text-sidebar-active truncate">Partner Portal</p>
                     <p className="text-[9px] text-text-secondary font-medium block -mt-0.5">Connected Workspace</p>
                   </div>
                 </div>
@@ -148,11 +150,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   } ${
                     isActive
                       ? 'bg-primary/10 text-primary border-primary/20 shadow-md shadow-primary/5'
-                      : 'text-text-secondary border-transparent hover:bg-hover hover:text-white'
+                      : 'text-sidebar-foreground border-transparent hover:bg-hover hover:text-sidebar-active'
                   }`}
                   title={isSidebarCollapsed ? item.name : undefined}
                 >
-                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-text-secondary'}`} />
+                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-sidebar-foreground'}`} />
                   {!isSidebarCollapsed && (
                     <span className="animate-in fade-in duration-200">{item.name}</span>
                   )}
@@ -167,7 +169,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           {user && !isSidebarCollapsed && (
             <div className="px-2 space-y-0.5 animate-in fade-in duration-200">
               <p className="text-[9px] text-primary font-bold tracking-wider uppercase">User Profile</p>
-              <p className="text-xs font-bold text-white truncate max-w-[200px]" title={user.email}>{user.email}</p>
+              <p className="text-xs font-bold text-sidebar-active truncate max-w-[200px]" title={user.email}>{user.email}</p>
               <p className="text-[8px] text-text-secondary font-semibold tracking-wider uppercase">
                 {user.role.replace('_', ' ')}
               </p>
@@ -189,7 +191,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* ── MOBILE DRAWER NAVIGATION ── */}
       {isMobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden bg-black/60 backdrop-blur-xs transition-opacity duration-200">
-          <div className="w-64 bg-[#0B0F19] border-r border-border flex flex-col justify-between h-full p-5 animate-in slide-in-from-left duration-250">
+          <div className="w-64 bg-sidebar border-r border-border flex flex-col justify-between h-full p-5 animate-in slide-in-from-left duration-250">
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-8 px-2">
                 <div className="flex items-center gap-3">
@@ -197,7 +199,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     G
                   </div>
                   <div>
-                    <span className="text-base font-black tracking-tight text-white block">GrowPhil</span>
+                    <span className="text-base font-black tracking-tight text-sidebar-active block">GrowPhil</span>
                     <span className="text-[10px] text-primary font-bold tracking-wider uppercase block -mt-1">
                       {isSuperAdmin ? 'Super Admin' : 'Partner Portal'}
                     </span>
@@ -205,7 +207,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 </div>
                 <button 
                   onClick={() => setIsMobileOpen(false)} 
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-hover cursor-pointer"
+                  className="text-sidebar-foreground hover:text-sidebar-active p-1 rounded-lg hover:bg-hover cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -227,10 +229,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                       className={`flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-premium border ${
                         isActive
                           ? 'bg-primary/10 text-primary border-primary/20 shadow-md shadow-primary/5'
-                          : 'text-slate-450 border-transparent hover:bg-hover hover:text-white'
+                          : 'text-sidebar-foreground border-transparent hover:bg-hover hover:text-sidebar-active'
                       }`}
                     >
-                      <Icon className="h-4.5 w-4.5 text-slate-500" />
+                      <Icon className="h-4.5 w-4.5 text-sidebar-foreground" />
                       {item.name}
                     </Link>
                   );
@@ -242,8 +244,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               {user && (
                 <div className="px-2 space-y-0.5">
                   <p className="text-[10px] text-primary font-bold tracking-wider uppercase">User Profile</p>
-                  <p className="text-xs font-bold text-white truncate">{user.email}</p>
-                  <p className="text-[9px] text-slate-500 font-semibold tracking-wider uppercase">
+                  <p className="text-xs font-bold text-sidebar-active truncate">{user.email}</p>
+                  <p className="text-[9px] text-sidebar-foreground/80 font-semibold tracking-wider uppercase">
                     {user.role.replace('_', ' ')}
                   </p>
                 </div>
@@ -273,7 +275,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <div className="flex items-center gap-3.5">
               <button
                 onClick={() => setIsMobileOpen(true)}
-                className="block md:hidden text-text-secondary hover:text-white p-2 rounded-xl hover:bg-hover transition-premium cursor-pointer"
+                className="block md:hidden text-text-secondary hover:text-text-primary p-2 rounded-xl hover:bg-hover transition-premium cursor-pointer"
               >
                 <Menu className="h-5 w-5" />
               </button>
@@ -282,7 +284,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               <div className="flex items-center gap-2 text-xs font-bold">
                 <span className="text-text-secondary/70 uppercase tracking-widest">Portal</span>
                 <span className="text-border/60">/</span>
-                <span className="text-white uppercase tracking-widest">{getPageTitle()}</span>
+                <span className="text-text-primary uppercase tracking-widest">{getPageTitle()}</span>
               </div>
             </div>
 
@@ -296,7 +298,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               </div>
 
               {/* Notification Bell */}
-              <button className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-white hover:bg-hover active:scale-95 transition-premium cursor-pointer relative">
+              <button className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-text-primary hover:bg-hover active:scale-95 transition-premium cursor-pointer relative">
                 <Bell size={14} />
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary border-2 border-card" />
               </button>
@@ -304,7 +306,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               {/* Theme Selector */}
               <button
                 onClick={toggleTheme}
-                className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-white hover:bg-hover active:scale-95 transition-premium cursor-pointer"
+                className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-text-primary hover:bg-hover active:scale-95 transition-premium cursor-pointer"
                 title="Toggle Theme"
               >
                 {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
@@ -313,10 +315,65 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </div>
         </header>
 
+        {/* Subscription Banners for Client Portal */}
+        {(() => {
+          const subscriptionStatus = user?.subscriptionStatus;
+          const trialEndDate = user?.trialEndDate;
+          const isTrialExpired = user?.isTrialExpired;
+
+          let daysRemaining = 0;
+          if (trialEndDate) {
+            const end = new Date(trialEndDate);
+            const today = new Date();
+            const diff = end.getTime() - today.getTime();
+            daysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+          }
+
+          if (isTrialExpired) {
+            return (
+              <div className="bg-red-500/10 border-b border-red-500/20 text-red-400 p-3.5 px-6 flex items-center gap-3 text-xs font-bold animate-in slide-in-from-top duration-300">
+                <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <span>The hosting agency's free trial has expired. Workspace access is suspended. Please contact your agency administrator.</span>
+              </div>
+            );
+          }
+
+          if (subscriptionStatus === 'TRIAL') {
+            return (
+              <div className="bg-primary/10 border-b border-primary/20 text-primary p-3.5 px-6 flex items-center gap-3 text-xs font-bold animate-in slide-in-from-top duration-300">
+                <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span>Agency Sponsor Trial: {daysRemaining} days remaining in this free trial workspace.</span>
+              </div>
+            );
+          }
+
+          return null;
+        })()}
+
         {/* Dynamic page viewport content */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-6xl mx-auto min-h-full space-y-6">
-            {children}
+            {(() => {
+              const isTrialExpired = user?.isTrialExpired;
+
+              if (isTrialExpired) {
+                return (
+                  <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 border border-border/80 bg-card p-10 rounded-3xl shadow-xl max-w-lg mx-auto mt-12 animate-in zoom-in duration-300">
+                    <div className="h-16 w-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center">
+                      <AlertCircle size={32} />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-white">Workspace Suspended</h3>
+                      <p className="text-sm text-muted">
+                        This business workspace has been suspended because the sponsoring agency's trial period has expired. Please contact your marketing agency administrator to restore access.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              return children;
+            })()}
           </div>
         </div>
       </main>

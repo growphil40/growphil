@@ -4,6 +4,10 @@ export interface UserSession {
   role: string;
   tenantId: string;
   tenantType: 'agency' | 'client';
+  subscriptionStatus?: string | null;
+  subscriptionPlan?: string | null;
+  trialEndDate?: string | null;
+  isTrialExpired?: boolean;
 }
 
 let accessToken = '';
