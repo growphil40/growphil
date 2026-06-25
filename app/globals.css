@@ -1,0 +1,233 @@
+@import "tailwindcss";
+
+
+:root {
+  /* Default Theme is Dark (Premium Midnight Blue & Royal Blue Theme) */
+  --background: #030712;
+  --foreground: #F8FAFC;
+  --card: #0B0F19;
+  --card-foreground: #F8FAFC;
+  --card-secondary: #0F172A;
+  --border: rgba(59, 130, 246, 0.15);
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #60A5FA;
+  --secondary-foreground: #030712;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --hover: #1E293B;
+  
+  --sidebar-bg: #070B19;
+  --sidebar-fg: #F8FAFC;
+  --sidebar-border: rgba(59, 130, 246, 0.12);
+  
+  --muted: #64748B;
+  --muted-foreground: #475569;
+}
+
+.dark {
+  --background: #030712;
+  --foreground: #F8FAFC;
+  --card: #0B0F19;
+  --card-foreground: #F8FAFC;
+  --card-secondary: #0F172A;
+  --border: rgba(59, 130, 246, 0.15);
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #60A5FA;
+  --secondary-foreground: #030712;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --hover: #1E293B;
+  
+  --sidebar-bg: #070B19;
+  --sidebar-fg: #F8FAFC;
+  --sidebar-border: rgba(59, 130, 246, 0.12);
+  
+  --muted: #64748B;
+  --muted-foreground: #475569;
+}
+
+.light {
+  /* Aligned to Dark Theme as requested by the user */
+  --background: #030712;
+  --foreground: #F8FAFC;
+  --card: #0B0F19;
+  --card-foreground: #F8FAFC;
+  --card-secondary: #0F172A;
+  --border: rgba(59, 130, 246, 0.15);
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #60A5FA;
+  --secondary-foreground: #030712;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --hover: #1E293B;
+  
+  --sidebar-bg: #070B19;
+  --sidebar-fg: #F8FAFC;
+  --sidebar-border: rgba(59, 130, 246, 0.12);
+  
+  --muted: #64748B;
+  --muted-foreground: #475569;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-secondary: var(--card-secondary);
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-border: var(--border);
+  
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-foreground: var(--sidebar-fg);
+  --color-sidebar-border: var(--sidebar-border);
+  
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-hover: var(--hover);
+
+  --font-sans: var(--font-inter), var(--font-geist-sans), sans-serif;
+  --font-display: var(--font-outfit), sans-serif;
+  
+  --radius-3xl: 24px;
+  --radius-2xl: 16px;
+  --radius-xl: 12px;
+  
+  --shadow-premium-card: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-x: hidden;
+}
+
+/* Glassmorphism helpers matching Linear + Framer styles */
+.glass-header {
+  background: rgba(11, 15, 25, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.glass-card {
+  background: rgba(11, 15, 25, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+}
+
+/* Custom premium transitions and interactive states */
+.transition-premium {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Typography styles */
+.text-page-title {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.text-section-title {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.text-card-title {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.text-body-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.1);
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.2);
+}
+
+/* ===== Animations ===== */
+@keyframes leadArrive {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 6px rgba(6, 182, 212, 0.15);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+  }
+}
+
+.animate-lead-arrive {
+  animation: leadArrive 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toastSlideIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
