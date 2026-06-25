@@ -563,13 +563,6 @@ export default function SaaSLandingPage() {
                 <span>Start 45-Day Free Trial</span>
                 <ArrowRight size={18} />
               </a>
-              <a
-                href="#solution"
-                className="flex items-center justify-center gap-2 bg-card border border-border hover:bg-hover text-text-primary rounded-xl px-7 py-4 font-semibold text-base transition-premium"
-              >
-                <Play size={16} className="fill-current text-primary" />
-                <span>Book Live Demo</span>
-              </a>
             </div>
 
             {/* Quick Metrics */}
@@ -617,7 +610,7 @@ export default function SaaSLandingPage() {
               <div className="flex-1 p-5 grid grid-cols-12 gap-4 text-xs overflow-hidden select-none">
                 
                 {/* Metric Sidebar */}
-                <div className="col-span-3 border-r border-border/80 pr-3 flex flex-col gap-4">
+                <div className="hidden sm:flex col-span-3 border-r border-border/80 pr-3 flex-col gap-4">
                   <div className="flex items-center gap-2 text-primary font-bold">
                     <div className="w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">G</div>
                     <span>GrowPhil</span>
@@ -634,7 +627,7 @@ export default function SaaSLandingPage() {
                 </div>
 
                 {/* Dashboard Main Visual Area */}
-                <div className="col-span-9 flex flex-col gap-4">
+                <div className="col-span-12 sm:col-span-9 flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-semibold text-text-primary text-[13px]">Apex Media Workspace</h4>
@@ -688,7 +681,7 @@ export default function SaaSLandingPage() {
             </div>
 
             {/* --- Floating Live Feeds Toast Overlay --- */}
-            <div className="absolute -bottom-6 -right-4 max-w-[240px] flex flex-col gap-2 z-10">
+            <div className="hidden sm:flex absolute -bottom-6 -right-4 max-w-[240px] flex-col gap-2 z-10">
               <AnimatePresence mode="popLayout">
                 {incomingLeads.map((lead) => (
                   <motion.div
@@ -719,7 +712,7 @@ export default function SaaSLandingPage() {
             </div>
 
             {/* Floating Task Prompt */}
-            <div className="absolute -top-6 -left-6 glass-card shadow-lg rounded-xl p-3 border border-border/80 flex items-center gap-3 bg-card/90 max-w-[190px]">
+            <div className="hidden sm:flex absolute -top-6 -left-6 glass-card shadow-lg rounded-xl p-3 border border-border/80 items-center gap-3 bg-card/90 max-w-[190px]">
               <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
                 <Clock size={16} />
               </div>
@@ -935,7 +928,7 @@ export default function SaaSLandingPage() {
           </div>
 
           {/* Tab Screen mockups rendering dynamic views */}
-          <div className="relative border border-border bg-card/60 backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden max-w-4xl mx-auto aspect-[16/10] flex flex-col">
+          <div className="relative border border-border bg-card/60 backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden max-w-4xl mx-auto aspect-auto md:aspect-[16/10] min-h-[460px] md:min-h-0 flex flex-col">
             
             {/* Mockup Header */}
             <div className="bg-card-secondary/80 border-b border-border px-5 py-3.5 flex items-center justify-between">
@@ -1008,7 +1001,7 @@ export default function SaaSLandingPage() {
                         )}
 
                         {tab.id === "pipeline" && (
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="bg-card border border-border rounded-xl p-3 flex flex-col gap-2.5">
                               <span className="font-bold text-text-primary block border-b border-border/60 pb-1.5 mb-1.5">New Leads (2)</span>
                               <div className="bg-card-secondary/80 border border-border/50 p-2.5 rounded-lg">
@@ -1051,7 +1044,7 @@ export default function SaaSLandingPage() {
                               </div>
                               <span className="bg-success/10 text-success text-[10px] px-2 py-0.5 rounded font-bold">Mapped</span>
                             </div>
-                            <div className="grid grid-cols-3 gap-4 py-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-2">
                               <div className="bg-card border border-border/60 p-2.5 rounded-lg">
                                 <span className="text-[9px] text-text-secondary block">CRM Target: Name</span>
                                 <span className="font-semibold text-text-primary">Mapped to: `Full Name`</span>
@@ -1506,7 +1499,7 @@ export default function SaaSLandingPage() {
                   <span className="text-lg font-bold text-text-primary block font-display">12,430 Ingested Leads</span>
                   <span className="text-xs text-text-secondary">Average closing cycle: 4.8 days</span>
                 </div>
-                <div className="flex items-center gap-8 font-display">
+                <div className="flex flex-wrap items-center gap-4 sm:gap-8 font-display">
                   <div className="text-center">
                     <span className="block text-2xl font-bold text-text-primary">85.4%</span>
                     <span className="text-[10px] text-text-secondary uppercase font-semibold">Contacted</span>
@@ -1828,12 +1821,6 @@ export default function SaaSLandingPage() {
               className="w-full sm:w-auto bg-white text-primary hover:bg-blue-50 font-bold px-8 py-4 rounded-xl text-base shadow-lg transition-premium hover:scale-[1.02]"
             >
               Start 45-Day Trial Free
-            </a>
-            <a
-              href="https://calendly.com/growphil"
-              className="w-full sm:w-auto bg-transparent border border-white/40 hover:bg-white/10 font-bold px-8 py-4 rounded-xl text-base transition-premium"
-            >
-              Book 1:1 Live Demo
             </a>
           </div>
 
