@@ -327,7 +327,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
             );
           }
 
-          if (subscriptionStatus === 'TRIAL') {
+          if (subscriptionStatus === 'TRIAL' && daysRemaining <= 5) {
             return (
               <div className="bg-primary/10 border-b border-primary/20 text-primary p-3.5 px-6 flex items-center justify-between text-xs font-bold animate-in slide-in-from-top duration-300">
                 <div className="flex items-center gap-3">

@@ -338,7 +338,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             );
           }
 
-          if (subscriptionStatus === 'TRIAL') {
+          if (subscriptionStatus === 'TRIAL' && daysRemaining <= 5) {
             return (
               <div className="bg-primary/10 border-b border-primary/20 text-primary p-3.5 px-6 flex items-center gap-3 text-xs font-bold animate-in slide-in-from-top duration-300">
                 <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
