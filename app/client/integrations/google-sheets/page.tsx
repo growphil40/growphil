@@ -66,7 +66,7 @@ export default function GoogleSheetsIntegrationPage() {
   });
 
   // Sync intervals
-  const [syncInterval, setSyncInterval] = useState(5);
+  const [syncInterval, setSyncInterval] = useState(900);
   const [savingConnection, setSavingConnection] = useState(false);
 
   // Manual sync and stats
