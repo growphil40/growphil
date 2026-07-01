@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../lib/api';
@@ -9,12 +9,13 @@ import { ShieldCheck, Database, Zap, ArrowRight, Sun, Moon } from 'lucide-react'
 import { useTheme } from '../../ThemeProvider';
 
 export default function LoginPage() {
-  const { login, error: authError, loading } = useAuth();
+  const { login, user, error: authError, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Unverified email states
   const [isUnverified, setIsUnverified] = useState(false);
@@ -22,6 +23,18 @@ export default function LoginPage() {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'agency_admin') {
+        window.location.href = '/agency/dashboard';
+      } else if (user.role === 'client_owner' || user.role === 'super_admin') {
+        window.location.href = '/client/leads';
+      } else {
+        window.location.href = '/';
+      }
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +49,7 @@ export default function LoginPage() {
     }
 
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, rememberMe);
       if (user.role === 'agency_admin') {
         window.location.href = '/agency/dashboard';
       } else if (user.role === 'client_owner' || user.role === 'super_admin') {
@@ -223,6 +236,19 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 disabled={loading}
               />
+            </div>
+
+            <div className="flex items-center py-1">
+              <label className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-muted hover:text-foreground cursor-pointer select-none transition-colors">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4.5 w-4.5 rounded-md border border-border bg-card text-primary focus:ring-primary focus:ring-offset-background transition-premium cursor-pointer accent-primary"
+                  disabled={loading}
+                />
+                Remember me
+              </label>
             </div>
 
             <Button

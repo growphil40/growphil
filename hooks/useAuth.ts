@@ -61,7 +61,7 @@ export function useAuth() {
       setLoading(true);
       globalRefreshPromise = api.post('/v1/auth/refresh');
       const response = await globalRefreshPromise;
-      const { accessToken } = response.data.data;
+      const { accessToken, expiresInDays } = response.data.data;
       setAccessToken(accessToken);
       
       const decoded = decodeJwt(accessToken);
@@ -77,7 +77,7 @@ export function useAuth() {
           trialEndDate: decoded.trialEndDate || null,
           isTrialExpired: decoded.isTrialExpired || false,
         };
-        setCurrentUser(userPayload);
+        setCurrentUser(userPayload, expiresInDays > 7);
         setUserState(userPayload);
       } else {
         const currentUser = getCurrentUser();
@@ -97,7 +97,7 @@ export function useAuth() {
   /**
    * Performs credentials login.
    */
-  const login = async (email: string, passwordPlain: string) => {
+  const login = async (email: string, passwordPlain: string, rememberMe = false) => {
     try {
       setLoading(true);
       setError(null);
@@ -105,9 +105,10 @@ export function useAuth() {
       const response = await api.post('/v1/auth/login', {
         email,
         password: passwordPlain,
+        rememberMe,
       });
 
-      const { accessToken, refreshToken, user: loggedUser } = response.data.data;
+      const { accessToken, refreshToken, user: loggedUser, expiresInDays } = response.data.data;
 
       // Store tokens and set state
       setAccessToken(accessToken);
@@ -124,7 +125,7 @@ export function useAuth() {
         isTrialExpired: loggedUser.isTrialExpired || false,
       };
 
-      setCurrentUser(userPayload);
+      setCurrentUser(userPayload, expiresInDays > 7);
       setUserState(userPayload);
       
       return userPayload;

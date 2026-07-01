@@ -40,12 +40,13 @@ export function getAccessToken(): string {
 /**
  * Stores the authenticated user profile in memory.
  */
-export function setCurrentUser(user: UserSession | null) {
+export function setCurrentUser(user: UserSession | null, rememberMe = false) {
   currentUser = user;
   if (typeof window !== 'undefined') {
     if (user) {
       localStorage.setItem('growphil_user', JSON.stringify(user));
-      document.cookie = `growphil_user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=604800; SameSite=Strict; Secure`;
+      const maxAge = rememberMe ? 180 * 24 * 60 * 60 : 7 * 24 * 60 * 60;
+      document.cookie = `growphil_user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${maxAge}; SameSite=Strict; Secure`;
     } else {
       localStorage.removeItem('growphil_user');
       document.cookie = 'growphil_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure';
