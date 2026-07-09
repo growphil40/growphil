@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '../../../hooks/useAuth';
 import { api } from '../../../lib/api';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Database, Zap, ArrowRight, Sun, Moon } from 'lucide-react';
+import { ShieldCheck, Database, Zap, ArrowRight, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../../ThemeProvider';
 
 export default function LoginPage() {
@@ -14,6 +14,7 @@ export default function LoginPage() {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
 
@@ -228,14 +229,24 @@ export default function LoginPage() {
                   Forgot Password?
                 </Link>
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-border bg-card text-foreground px-4 py-3 text-sm focus:border-primary focus:outline-none transition-premium"
-                placeholder="••••••••"
-                disabled={loading}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-card text-foreground pl-4 pr-11 py-3 text-sm focus:border-primary focus:outline-none transition-premium"
+                  placeholder="••••••••"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground active:scale-95 transition-colors p-1"
+                  disabled={loading}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center py-1">
