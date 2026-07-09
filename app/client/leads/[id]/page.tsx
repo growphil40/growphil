@@ -204,6 +204,14 @@ export default function LeadDetailPage() {
           details: log.newValue || 'No note content',
           time: new Date(log.createdAt)
         });
+      } else if (log.action === 'follow_up_outcome') {
+        items.push({
+          id: log.id,
+          type: 'follow_up',
+          title: 'Follow-up Task Completed',
+          details: `Outcome: ${log.newValue || 'Completed'}`,
+          time: new Date(log.createdAt)
+        });
       } else if (log.action === 'imported_from_google_sheets') {
         const info = log.newValue ? JSON.parse(log.newValue) : {};
         items.push({
@@ -352,6 +360,9 @@ export default function LeadDetailPage() {
     NEGOTIATION: 'Negotiation',
     WON: 'Won Deal',
     LOST: 'Lost Deal',
+    BOOKED: 'Booked',
+    NO_NEED: 'No Need',
+    WRONG_LEAD: 'Wrong Lead',
   };
 
   return (
@@ -374,9 +385,11 @@ export default function LeadDetailPage() {
             onChange={handleStageChange}
             className="bg-card text-white text-xs border border-border rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-primary cursor-pointer font-bold"
           >
-            {Object.entries(STAGE_LABELS).map(([val, label]) => (
-              <option key={val} value={val} className="bg-zinc-900 text-white">{label}</option>
-            ))}
+            {Object.entries(STAGE_LABELS)
+              .sort((a, b) => a[1].localeCompare(b[1]))
+              .map(([val, label]) => (
+                <option key={val} value={val} className="bg-zinc-900 text-white">{label}</option>
+              ))}
           </select>
         </div>
       </div>

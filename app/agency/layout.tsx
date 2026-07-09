@@ -1,10 +1,11 @@
 'use client';
  
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../ThemeProvider';
+import { api } from '../../lib/api';
 import { Button } from '@/components/ui/button';
 import {
   BarChart3,
@@ -35,6 +36,30 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
   
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [pendingCount, setPendingCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const isAuthorized = user.role === 'agency_admin' || user.role === 'client_owner' || user.role === 'super_admin';
+    if (!isAuthorized) return;
+
+    const fetchPendingFollowUps = async () => {
+      try {
+        const res = await api.get('/v1/follow-ups?status=pending');
+        if (res.data && Array.isArray(res.data.data)) {
+          setPendingCount(res.data.data.length);
+        }
+      } catch (err) {
+        console.error('Failed to fetch pending reminders count', err);
+      }
+    };
+
+    fetchPendingFollowUps();
+
+    const interval = setInterval(fetchPendingFollowUps, 60000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const navItems = [
     { name: 'Dashboard', path: '/agency/dashboard', icon: LayoutDashboard },
@@ -275,17 +300,17 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
             {/* Header Right Tools */}
             <div className="flex items-center gap-4">
               
-              {/* Active Connection Pulse */}
-              <div className="flex items-center gap-2 p-1.5 px-3 rounded-full bg-success/10 text-success border border-success/20 text-[9px] font-bold tracking-widest uppercase">
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                Live Node
-              </div>
+
 
               {/* Notification Bell */}
-              <button className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-text-primary hover:bg-hover active:scale-95 transition-premium cursor-pointer relative">
+              <Link href="/agency/leads" className="p-2.5 rounded-xl border border-border bg-card text-text-secondary hover:text-text-primary hover:bg-hover active:scale-95 transition-premium cursor-pointer relative" title="View Leads">
                 <Bell size={14} />
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary border-2 border-card" />
-              </button>
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-4.5 w-4.5 rounded-full bg-primary border-2 border-card flex items-center justify-center text-[9px] font-black text-black animate-in zoom-in duration-200">
+                    {pendingCount}
+                  </span>
+                )}
+              </Link>
  
               {/* Theme Selector */}
               <button
@@ -345,7 +370,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
         })()}
 
         {/* Dynamic page viewport content */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="flex-1 overflow-y-auto p-6 pb-24 md:p-8">
           <div className="max-w-6xl mx-auto min-h-full space-y-6">
             {(() => {
               const isTrialExpired = user?.isTrialExpired;
@@ -375,6 +400,33 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
               return children;
             })()}
           </div>
+        </div>
+
+        {/* ── MOBILE BOTTOM NAVIGATION ── */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-card/85 backdrop-blur-lg border-t border-border h-16 flex items-center justify-around px-2 select-none shadow-lg">
+          {navItems.map((item) => {
+            const [itemPath, itemQuery] = item.path.split('?');
+            const itemTab = itemQuery ? new URLSearchParams(itemQuery).get('tab') : null;
+            const isActive = pathname.startsWith(itemPath) && (
+              itemQuery ? (tab === itemTab) : (tab === null)
+            );
+            const Icon = item.icon;
+            
+            return (
+              <Link
+                key={`mobile-bottom-${item.name}`}
+                href={item.path}
+                className={`flex flex-col items-center justify-center flex-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+                  isActive ? 'text-primary' : 'text-text-secondary hover:text-foreground'
+                }`}
+              >
+                <Icon className="h-5 w-5 mb-0.5" />
+                <span className="text-[9px] font-bold tracking-wider uppercase truncate max-w-[70px]">
+                  {item.name}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </main>
       

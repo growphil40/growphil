@@ -37,7 +37,10 @@ const STAGES: { value: LeadStage; label: string; color: string; dotColor: string
   { value: 'QUALIFIED', label: 'Qualified', color: 'border-indigo-500/20 bg-indigo-500/5 text-indigo-400', dotColor: 'bg-indigo-400' },
   { value: 'NEGOTIATION', label: 'Proposal', color: 'border-purple-500/20 bg-purple-500/5 text-purple-400', dotColor: 'bg-purple-400' },
   { value: 'WON', label: 'Won', color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400', dotColor: 'bg-emerald-400' },
-  { value: 'LOST', label: 'Lost', color: 'border-red-500/20 bg-red-500/5 text-red-400', dotColor: 'bg-red-400' }
+  { value: 'LOST', label: 'Lost', color: 'border-red-500/20 bg-red-500/5 text-red-400', dotColor: 'bg-red-400' },
+  { value: 'BOOKED', label: 'Booked', color: 'border-rose-500/20 bg-rose-500/5 text-rose-400', dotColor: 'bg-rose-400' },
+  { value: 'NO_NEED', label: 'No Need', color: 'border-slate-500/20 bg-slate-500/5 text-slate-400', dotColor: 'bg-slate-400' },
+  { value: 'WRONG_LEAD', label: 'Wrong Lead', color: 'border-orange-500/20 bg-orange-500/5 text-orange-400', dotColor: 'bg-orange-400' }
 ];
 
 export default function LeadDetailsPage() {
@@ -329,7 +332,7 @@ export default function LeadDetailsPage() {
                   onChange={(e) => handleStageChange(e.target.value as LeadStage)}
                   className="w-full text-xs text-white bg-card border border-border rounded-xl px-3 py-2 cursor-pointer focus:outline-none focus:border-primary font-bold mt-1"
                 >
-                  {STAGES.map((s) => (
+                  {[...STAGES].sort((a, b) => a.label.localeCompare(b.label)).map((s) => (
                     <option key={s.value} value={s.value} className="bg-slate-900 text-white font-normal">
                       {s.label}
                     </option>

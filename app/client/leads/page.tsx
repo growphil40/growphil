@@ -32,7 +32,8 @@ import {
   MessageCircle,
   Trash2,
   Plus,
-  Upload
+  Upload,
+  Bell
 } from 'lucide-react';
 import { FiPhone, FiPhoneCall, FiArrowRight } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
@@ -43,7 +44,10 @@ const STAGES: { value: LeadStage; label: string; color: string; dotColor: string
   { value: 'QUALIFIED', label: 'Qualified', color: 'border-indigo-500/20 bg-indigo-500/5 text-indigo-400', dotColor: 'bg-indigo-400' },
   { value: 'NEGOTIATION', label: 'Proposal', color: 'border-purple-500/20 bg-purple-500/5 text-purple-400', dotColor: 'bg-purple-400' },
   { value: 'WON', label: 'Won', color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400', dotColor: 'bg-emerald-400' },
-  { value: 'LOST', label: 'Lost', color: 'border-red-500/20 bg-red-500/5 text-red-400', dotColor: 'bg-red-400' }
+  { value: 'LOST', label: 'Lost', color: 'border-red-500/20 bg-red-500/5 text-red-400', dotColor: 'bg-red-400' },
+  { value: 'BOOKED', label: 'Booked', color: 'border-rose-500/20 bg-rose-500/5 text-rose-400', dotColor: 'bg-rose-400' },
+  { value: 'NO_NEED', label: 'No Need', color: 'border-slate-500/20 bg-slate-500/5 text-slate-400', dotColor: 'bg-slate-400' },
+  { value: 'WRONG_LEAD', label: 'Wrong Lead', color: 'border-orange-500/20 bg-orange-500/5 text-orange-400', dotColor: 'bg-orange-400' }
 ];
 
 const SOURCE_TYPES = [
@@ -108,6 +112,41 @@ export default function LeadsPage() {
       addToast(err.response?.data?.error?.message || 'Failed to add lead.', 'error');
     } finally {
       setIsSubmittingNewLead(false);
+    }
+  };
+
+  const [isReminderOpen, setIsReminderOpen] = useState(false);
+  const [reminderLead, setReminderLead] = useState<{ id: string; name: string } | null>(null);
+  const [reminderDate, setReminderDate] = useState('');
+  const [reminderNote, setReminderNote] = useState('');
+  const [isSubmittingReminder, setIsSubmittingReminder] = useState(false);
+
+  const handleOpenReminder = (leadId: string, leadName: string) => {
+    setReminderLead({ id: leadId, name: leadName });
+    setReminderDate('');
+    setReminderNote('');
+    setIsReminderOpen(true);
+  };
+
+  const handleScheduleReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reminderLead || !reminderDate) return;
+
+    try {
+      setIsSubmittingReminder(true);
+      await api.post('/v1/follow-ups', {
+        leadId: reminderLead.id,
+        scheduledAt: new Date(reminderDate).toISOString(),
+        note: reminderNote || null,
+      });
+
+      addToast(`Reminder set successfully for "${reminderLead.name}"!`, 'success');
+      setIsReminderOpen(false);
+      setReminderLead(null);
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || 'Failed to set reminder.');
+    } finally {
+      setIsSubmittingReminder(false);
     }
   };
 
@@ -656,7 +695,7 @@ export default function LeadsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/80 pb-6">
         <div>
-          <h1 className="text-[48px] font-bold text-white tracking-tight leading-none font-display">
+          <h1 className="text-3xl md:text-[48px] font-bold text-white tracking-tight leading-none font-display">
             Leads Pipeline
           </h1>
           <p className="text-text-secondary text-sm mt-2">Track conversions and customer milestones in real-time</p>
@@ -681,7 +720,7 @@ export default function LeadsPage() {
           </Button>
 
           {/* View Toggle — board hidden on mobile */}
-          <div className="flex bg-card rounded-xl p-1 border border-border">
+          <div className="hidden md:flex bg-card rounded-xl p-1 border border-border">
             <button
               onClick={() => setViewMode('board')}
               className={`hidden md:flex p-1.5 rounded-lg transition-colors ${viewMode === 'board' ? 'bg-primary text-black font-bold' : 'text-text-secondary hover:text-white'}`}
@@ -709,24 +748,53 @@ export default function LeadsPage() {
 
       {/* Filter and Search Panel */}
       <div className="rounded-xl border border-slate-900 bg-slate-900/10 p-4 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-            <input
-              type="text"
-              value={filters.search || ''}
-              onChange={handleSearchChange}
-              className="w-full rounded-lg border border-slate-800 bg-slate-950 pl-10 pr-4 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
-              placeholder="Search leads by name, email, or phone..."
-            />
+        <div className="flex flex-col md:flex-row gap-3 items-center justify-between w-full">
+          {/* Row 1: Search + Filters inline on mobile */}
+          <div className="flex flex-1 flex-row gap-2 items-center w-full">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+              <input
+                type="text"
+                value={filters.search || ''}
+                onChange={handleSearchChange}
+                className="w-full rounded-lg border border-slate-800 bg-slate-950 pl-10 pr-4 py-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                placeholder="Search leads..."
+              />
+            </div>
+
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs border font-medium transition-colors ${
+                  showFilters
+                    ? 'bg-indigo-650/10 text-indigo-400 border-indigo-500/20'
+                    : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                <Filter className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Advanced Filters</span>
+                <span className="sm:hidden">Filters</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`} />
+              </button>
+
+              {(filters.source || filters.city || filters.stage || filters.startDate || filters.endDate || filters.assignedTo) && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs text-red-400 hover:underline px-2 border border-red-500/20 rounded-lg hover:bg-red-500/5 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Super Admin Client Dropdown (Full width on mobile, w-64 inline on desktop) */}
           {isSuperAdmin && (
             <div className="w-full md:w-64">
               <select
                 value={filters.clientId || ''}
                 onChange={(e) => handleFilterChange('clientId', e.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
+                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
               >
                 <option value="">-- All Clients --</option>
                 {clients.map((c) => (
@@ -737,26 +805,6 @@ export default function LeadsPage() {
               </select>
             </div>
           )}
-
-          <div className="flex w-full md:w-auto gap-3">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm border font-medium transition-colors w-full md:w-auto ${showFilters ? 'bg-indigo-600/10 text-indigo-400 border-indigo-500/20' : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:text-white'}`}
-            >
-              <Filter className="h-4 w-4" />
-              Advanced Filters
-              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
-
-            {(filters.source || filters.city || filters.stage || filters.startDate || filters.endDate || filters.assignedTo) && (
-              <button
-                onClick={clearAllFilters}
-                className="text-xs text-red-400 hover:underline px-2"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Collapsible filters fields */}
@@ -907,23 +955,32 @@ export default function LeadsPage() {
                                   {cleanText(lead.name)}
                                 </Link>
                               </h4>
-                              {isSuperAdmin && (
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedLeadIds.includes(lead.id)}
-                                    onChange={() => handleSelectLead(lead.id)}
-                                    className="rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-650 h-3.5 w-3.5 cursor-pointer"
-                                  />
-                                  <button
-                                    onClick={() => handleDeleteLead(lead.id, lead.name)}
-                                    className="text-slate-500 hover:text-red-400 p-0.5 rounded hover:bg-red-500/10 transition-colors cursor-pointer"
-                                    title="Delete Lead"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              )}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  onClick={() => handleOpenReminder(lead.id, lead.name)}
+                                  className="text-slate-500 hover:text-amber-400 p-0.5 rounded hover:bg-amber-500/10 transition-colors cursor-pointer shrink-0"
+                                  title="Set Reminder"
+                                >
+                                  <Bell className="h-3.5 w-3.5" />
+                                </button>
+                                {isSuperAdmin && (
+                                  <>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedLeadIds.includes(lead.id)}
+                                      onChange={() => handleSelectLead(lead.id)}
+                                      className="rounded border-slate-800 bg-slate-950 text-indigo-650 h-3.5 w-3.5 cursor-pointer"
+                                    />
+                                    <button
+                                      onClick={() => handleDeleteLead(lead.id, lead.name)}
+                                      className="text-slate-500 hover:text-red-400 p-0.5 rounded hover:bg-red-500/10 transition-colors cursor-pointer"
+                                      title="Delete Lead"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
 
                             <div className="text-[10px] text-slate-500 space-y-1.5">
@@ -998,14 +1055,23 @@ export default function LeadsPage() {
                             : 'border-slate-900 bg-slate-950/40 hover:bg-slate-950/70 shadow-sm'
                         }`}
                       >
-                        {/* Row 1 — name + NEW badge */}
+                        {/* Row 1 — name + NEW badge + reminder bell */}
                         <div className="flex items-center justify-between gap-2">
-                          <Link
-                            href={`/client/leads/${lead.id}`}
-                            className="text-base font-bold text-white leading-snug hover:text-indigo-400 transition-colors truncate"
-                          >
-                            {cleanText(lead.name)}
-                          </Link>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Link
+                              href={`/client/leads/${lead.id}`}
+                              className="text-base font-bold text-white leading-snug hover:text-indigo-400 transition-colors truncate"
+                            >
+                              {cleanText(lead.name)}
+                            </Link>
+                            <button
+                              onClick={() => handleOpenReminder(lead.id, lead.name)}
+                              className="text-slate-500 hover:text-amber-400 p-1 rounded hover:bg-amber-500/10 transition-colors cursor-pointer shrink-0"
+                              title="Set Reminder"
+                            >
+                              <Bell className="h-4 w-4" />
+                            </button>
+                          </div>
                           {lead.stage === 'NEW' && (
                             <span className="shrink-0 text-[9px] font-extrabold bg-blue-500/15 border border-blue-500/20 text-blue-400 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                               NEW
@@ -1065,7 +1131,7 @@ export default function LeadsPage() {
                                 onChange={(e) => handleSelectStageChange(lead.id, e.target.value as LeadStage)}
                                 className={`appearance-none text-[9px] font-bold uppercase tracking-wider border rounded-full pl-2.5 pr-6 py-0.5 focus:outline-none cursor-pointer ${stageObj.color}`}
                               >
-                                {STAGES.map((s) => (
+                                {[...STAGES].sort((a, b) => a.label.localeCompare(b.label)).map((s) => (
                                   <option key={s.value} value={s.value} className="bg-slate-950 text-white font-normal capitalize">
                                     {s.label}
                                   </option>
@@ -1149,9 +1215,18 @@ export default function LeadsPage() {
                               </td>
                             )}
                             <td className="py-3.5 pr-4 font-semibold text-white">
-                              <Link href={`/client/leads/${lead.id}`} className="hover:underline">
-                                {cleanText(lead.name)}
-                              </Link>
+                              <div className="flex items-center gap-2">
+                                <Link href={`/client/leads/${lead.id}`} className="hover:underline">
+                                  {cleanText(lead.name)}
+                                </Link>
+                                <button
+                                  onClick={() => handleOpenReminder(lead.id, lead.name)}
+                                  className="text-slate-500 hover:text-amber-400 p-0.5 rounded hover:bg-amber-500/10 transition-colors cursor-pointer"
+                                  title="Set Reminder"
+                                >
+                                  <Bell className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </td>
                             <td className="py-3.5 pr-4">
                               {lead.phone ? (
@@ -1186,7 +1261,7 @@ export default function LeadsPage() {
                                 onChange={(e) => handleSelectStageChange(lead.id, e.target.value as LeadStage)}
                                 className="bg-slate-950 text-[10px] font-bold border border-slate-800 rounded px-2 py-1 focus:outline-none"
                               >
-                                {STAGES.map((s) => (
+                                {[...STAGES].sort((a, b) => a.label.localeCompare(b.label)).map((s) => (
                                   <option key={s.value} value={s.value}>{s.label}</option>
                                 ))}
                               </select>
@@ -1374,7 +1449,7 @@ export default function LeadsPage() {
                 onChange={(e) => setNewLeadData(prev => ({ ...prev, stage: e.target.value as LeadStage }))}
                 className="w-full rounded-2xl border border-border bg-card-secondary px-4 py-3 text-white focus:outline-none focus:border-primary"
               >
-                {STAGES.map(s => (
+                {[...STAGES].sort((a, b) => a.label.localeCompare(b.label)).map(s => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
               </select>
@@ -1394,6 +1469,53 @@ export default function LeadsPage() {
               loading={isSubmittingNewLead}
             >
               Add Lead
+            </Button>
+          </div>
+        </form>
+      </Drawer>
+
+      {/* Set Follow-up Reminder Drawer */}
+      <Drawer
+        isOpen={isReminderOpen}
+        onClose={() => setIsReminderOpen(false)}
+        title={reminderLead ? `Schedule Reminder: ${reminderLead.name}` : 'Schedule Reminder'}
+        size="md"
+      >
+        <form onSubmit={handleScheduleReminder} className="space-y-5 text-sm">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary">Reminder Date & Time</label>
+            <input
+              type="datetime-local"
+              required
+              value={reminderDate}
+              onChange={(e) => setReminderDate(e.target.value)}
+              className="w-full rounded-2xl border border-border bg-card-secondary px-4 py-3 text-white focus:outline-none focus:border-primary cursor-pointer"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary">Instructions / Notes</label>
+            <textarea
+              value={reminderNote}
+              onChange={(e) => setReminderNote(e.target.value)}
+              placeholder="e.g. Call client to discuss proposal details..."
+              className="w-full rounded-2xl border border-border bg-card-secondary px-4 py-3 text-white focus:outline-none focus:border-primary h-28 resize-none"
+            />
+          </div>
+
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsReminderOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              loading={isSubmittingReminder}
+            >
+              Set Reminder
             </Button>
           </div>
         </form>

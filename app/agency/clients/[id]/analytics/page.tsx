@@ -39,7 +39,10 @@ const STAGES_CONFIG = [
   { key: 'QUALIFIED', label: 'Qualified', color: '#6366f1', bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20' },
   { key: 'NEGOTIATION', label: 'Negotiation', color: '#a855f7', bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20' },
   { key: 'WON', label: 'Won', color: '#10b981', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
-  { key: 'LOST', label: 'Lost', color: '#ef4444', bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' }
+  { key: 'LOST', label: 'Lost', color: '#ef4444', bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' },
+  { key: 'BOOKED', label: 'Booked', color: '#f43f5e', bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/20' },
+  { key: 'NO_NEED', label: 'No Need', color: '#64748b', bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' },
+  { key: 'WRONG_LEAD', label: 'Wrong Lead', color: '#f97316', bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/20' }
 ];
 
 export default function ClientAnalyticsPage() {

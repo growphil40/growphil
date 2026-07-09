@@ -35,6 +35,9 @@ const STAGE_CONFIG: { value: string; label: string; color: string; bgColor: stri
   { value: 'NEGOTIATION', label: 'Proposal', color: '#a855f7', bgColor: 'rgba(168,85,247,0.08)' },
   { value: 'WON', label: 'Won', color: '#10b981', bgColor: 'rgba(16,185,129,0.08)' },
   { value: 'LOST', label: 'Lost', color: '#ef4444', bgColor: 'rgba(239,68,68,0.08)' },
+  { value: 'BOOKED', label: 'Booked', color: '#f43f5e', bgColor: 'rgba(244,63,94,0.08)' },
+  { value: 'NO_NEED', label: 'No Need', color: '#64748b', bgColor: 'rgba(100,116,139,0.08)' },
+  { value: 'WRONG_LEAD', label: 'Wrong Lead', color: '#f97316', bgColor: 'rgba(249,115,22,0.08)' }
 ];
 
 export default function AgencyDashboardPage() {
