@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import {
   setAccessToken,
+  getAccessToken,
   setCurrentUser,
   getCurrentUser,
   clearAuthSession,
@@ -33,13 +34,32 @@ export function useAuth() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Attempt to hydrate user on component mount
+    // Attempt client-side hydration from localStorage on component mount
     const savedUser = getCurrentUser();
+    const token = getAccessToken();
+    let isTokenValid = false;
+
+    if (token) {
+      const decoded = decodeJwt(token);
+      if (decoded && decoded.exp && decoded.exp > Date.now() / 1000 + 10) {
+        isTokenValid = true;
+      }
+    }
+
     if (savedUser) {
       setUserState(savedUser);
+      if (isTokenValid) {
+        setLoading(false);
+        return; // Token is valid, skip network request entirely
+      }
+      // Token exists but is expired. Call refreshSession (loading stays true)
+      refreshSession();
+    } else {
+      // Guest user. Set loading to false immediately to unlock fields
+      setLoading(false);
+      // Attempt silent background refresh in case refresh token cookie exists
+      refreshSession();
     }
-    // Attempt to silently refresh token on load to establish in-memory session
-    refreshSession();
   }, []);
 
   /**
@@ -57,8 +77,12 @@ export function useAuth() {
       return;
     }
 
+    const hasSavedUser = !!getCurrentUser();
+
     try {
-      setLoading(true);
+      if (hasSavedUser) {
+        setLoading(true);
+      }
       globalRefreshPromise = api.post('/v1/auth/refresh');
       const response = await globalRefreshPromise;
       const { accessToken, expiresInDays } = response.data.data;
@@ -89,7 +113,9 @@ export function useAuth() {
       clearAuthSession();
       setUserState(null);
     } finally {
-      setLoading(false);
+      if (hasSavedUser) {
+        setLoading(false);
+      }
       globalRefreshPromise = null;
     }
   }

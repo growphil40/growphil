@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { api } from '../../../../lib/api';
-import { Database, ArrowLeftRight, Calendar, AlertCircle, CheckCircle2, RotateCw } from 'lucide-react';
+import { Database, ArrowLeftRight, Calendar, AlertCircle, CheckCircle2, RotateCw, Plus, ArrowLeft, Eye, Trash2 } from 'lucide-react';
 
 interface GoogleConnection {
   googleEmail: string;
@@ -26,6 +27,8 @@ interface HistoryLog {
   importedRows: number;
   duplicateRows: number;
   failedRows: number;
+  spreadsheetName?: string | null;
+  sheetTabName?: string | null;
   createdAt: string;
 }
 
@@ -41,7 +44,9 @@ export default function GoogleSheetsIntegrationPage() {
   // Connections and integrations state
   const [googleConn, setGoogleConn] = useState<GoogleConnection | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const [connections, setConnections] = useState<SpreadsheetConnection[]>([]);
   const [activeConnection, setActiveConnection] = useState<SpreadsheetConnection | null>(null);
+  const [isConfiguring, setIsConfiguring] = useState(false);
 
   // Selector dropdowns state
   const [spreadsheets, setSpreadsheets] = useState<{ id: string; name: string }[]>([]);
@@ -65,8 +70,8 @@ export default function GoogleSheetsIntegrationPage() {
     city: '',
   });
 
-  // Sync intervals
-  const [syncInterval, setSyncInterval] = useState(900);
+  // Sync intervals (default is 15 mins)
+  const [syncInterval, setSyncInterval] = useState(15);
   const [savingConnection, setSavingConnection] = useState(false);
 
   // Manual sync and stats
@@ -107,22 +112,17 @@ export default function GoogleSheetsIntegrationPage() {
       if (googleRes.data.data) {
         // 2. Load client connections
         const connectionsRes = await api.get('/v1/google/connections');
-        const conn = connectionsRes.data.data[0] || null; // Support single connection in UI currently
-        setActiveConnection(conn);
+        const conns = connectionsRes.data.data || [];
+        setConnections(conns);
 
-        if (conn) {
-          // Pre-populate mappings
-          const maps: Record<string, string> = {};
-          conn.mappings.forEach((m: any) => {
-            maps[m.crmField] = m.sheetColumn;
-          });
-          setFieldMappings(maps);
-          // Preload sheet headers
-          fetchSheetHeaders(conn.spreadsheetId, conn.sheetName);
-        } else {
-          // If no connection, fetch spreadsheets list for setup
-          fetchSpreadsheets();
+        // Update active connection if currently viewing details
+        if (activeConnection) {
+          const updated = conns.find((c: any) => c.id === activeConnection.id);
+          setActiveConnection(updated || null);
         }
+
+        // Fetch spreadsheets for selector dropdown list
+        fetchSpreadsheets();
 
         // 3. Load sync logs history
         loadSyncHistory();
@@ -132,11 +132,11 @@ export default function GoogleSheetsIntegrationPage() {
     } finally {
       setCheckingStatus(false);
     }
-  }, []);
+  }, [activeConnection]);
 
   useEffect(() => {
     loadStatusAndConnections();
-  }, [loadStatusAndConnections]);
+  }, []);
 
   /**
    * Triggers Google account connection OAuth handshake.
@@ -240,14 +240,14 @@ export default function GoogleSheetsIntegrationPage() {
       setSheets(sheets);
       setSuccessMsg(`Successfully loaded spreadsheet: "${spreadsheetName}"`);
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.error?.message || 'Failed to fetch spreadsheet details. Ensure your Google account is connected and the link is correct.');
+      setErrorMsg(err.response?.data?.error?.message || 'Failed to fetch spreadsheet details. Ensure your Google account is connected.');
     } finally {
       setFetchingUrlInfo(false);
     }
   };
 
   /**
-   * Save Spreadsheet Connection & Column mappings in a unified flow
+   * Save Spreadsheet Connection & Column mappings
    */
   const handleSaveConnection = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,7 +267,6 @@ export default function GoogleSheetsIntegrationPage() {
       return;
     }
 
-    // Verify at least Name column mapped
     if (!fieldMappings.name) {
       setErrorMsg('CRM Field "Customer Name" must be mapped to a spreadsheet column.');
       return;
@@ -297,7 +296,16 @@ export default function GoogleSheetsIntegrationPage() {
         mappings: mappingsArray,
       });
 
-      setSuccessMsg('Google Sheet spreadsheet connection configured and activated successfully!');
+      setSuccessMsg(`Spreadsheet "${spreadsheetName}" connected and mapping saved!`);
+      
+      // Reset form variables
+      setSelectedSpreadsheetId('');
+      setSelectedSheetName('');
+      setSheetUrl('');
+      setResolvedSpreadsheetName('');
+      setFieldMappings({ name: '', email: '', phone: '', source: '', city: '' });
+      setIsConfiguring(false);
+
       loadStatusAndConnections();
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error?.message || 'Failed to save configuration.');
@@ -309,20 +317,19 @@ export default function GoogleSheetsIntegrationPage() {
   /**
    * Remove Connection config
    */
-  const handleRemoveConnection = async () => {
-    if (!activeConnection) return;
-    if (!confirm('Are you sure you want to disconnect this Google Sheet? Sync logs history will be preserved.')) return;
+  const handleRemoveConnection = async (connectionId: string, sheetName: string) => {
+    if (!confirm(`Are you sure you want to disconnect Google Sheet "${sheetName}"? Sync history logs will be preserved.`)) return;
 
     try {
       setErrorMsg(null);
-      await api.delete(`/v1/google/connections/${activeConnection.id}`);
-      setSuccessMsg('Google Sheet disconnected.');
-      setActiveConnection(null);
-      setFieldMappings({ name: '', email: '', phone: '', source: '', city: '' });
-      setSelectedSpreadsheetId('');
-      setSelectedSheetName('');
-      setHeaders([]);
-      fetchSpreadsheets();
+      setSuccessMsg(null);
+      await api.delete(`/v1/google/connections/${connectionId}`);
+      setSuccessMsg(`Spreadsheet "${sheetName}" disconnected successfully.`);
+      
+      if (activeConnection?.id === connectionId) {
+        setActiveConnection(null);
+      }
+      loadStatusAndConnections();
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error?.message || 'Failed to remove connection.');
     }
@@ -331,16 +338,20 @@ export default function GoogleSheetsIntegrationPage() {
   /**
    * Toggle background synchronization status
    */
-  const handleToggleSync = async () => {
-    if (!activeConnection) return;
+  const handleToggleSync = async (connection: SpreadsheetConnection) => {
     try {
       setErrorMsg(null);
-      const nextStatus = !activeConnection.syncEnabled;
-      const res = await api.patch(`/v1/google/connections/${activeConnection.id}`, {
+      setSuccessMsg(null);
+      const nextStatus = !connection.syncEnabled;
+      const res = await api.patch(`/v1/google/connections/${connection.id}`, {
         syncEnabled: nextStatus,
       });
-      setActiveConnection(res.data.data);
-      setSuccessMsg(nextStatus ? 'Spreadsheet auto-sync enabled.' : 'Spreadsheet auto-sync disabled.');
+      
+      if (activeConnection?.id === connection.id) {
+        setActiveConnection(res.data.data);
+      }
+      setSuccessMsg(nextStatus ? `Spreadsheet auto-sync enabled.` : `Spreadsheet auto-sync disabled.`);
+      loadStatusAndConnections();
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error?.message || 'Failed to toggle sync.');
     }
@@ -349,8 +360,7 @@ export default function GoogleSheetsIntegrationPage() {
   /**
    * Trigger Manual sync
    */
-  const handleSyncNow = async () => {
-    if (!activeConnection) return;
+  const handleSyncNow = async (connectionId: string) => {
     try {
       setErrorMsg(null);
       setSuccessMsg(null);
@@ -358,12 +368,12 @@ export default function GoogleSheetsIntegrationPage() {
       setSyncingNow(true);
 
       const res = await api.post('/v1/google/sync-now', {
-        connectionId: activeConnection.id,
+        connectionId,
       });
 
       setSyncStats(res.data.data);
-      setSuccessMsg('Manual synchronisation completed successfully!');
-      loadSyncHistory();
+      setSuccessMsg('Spreadsheet sync execution completed successfully!');
+      loadStatusAndConnections();
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error?.message || 'Manual synchronization execution failed.');
     } finally {
@@ -393,6 +403,35 @@ export default function GoogleSheetsIntegrationPage() {
     }));
   };
 
+  const startConfigureNew = () => {
+    // Reset Form states
+    setSelectedSpreadsheetId('');
+    setSelectedSheetName('');
+    setSheetUrl('');
+    setResolvedSpreadsheetName('');
+    setHeaders([]);
+    setFieldMappings({ name: '', email: '', phone: '', source: '', city: '' });
+    
+    setIsConfiguring(true);
+    setActiveConnection(null);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    fetchSpreadsheets();
+  };
+
+  const handleSelectConnection = (conn: SpreadsheetConnection) => {
+    setActiveConnection(conn);
+    setIsConfiguring(false);
+    
+    // Populate form mappings for preview
+    const maps: Record<string, string> = {};
+    conn.mappings.forEach((m: any) => {
+      maps[m.crmField] = m.sheetColumn;
+    });
+    setFieldMappings(maps);
+    fetchSheetHeaders(conn.spreadsheetId, conn.sheetName);
+  };
+
   if (checkingStatus) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -407,8 +446,24 @@ export default function GoogleSheetsIntegrationPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Google Sheets Connector</h1>
-        <p className="text-slate-400 mt-1">Automatically synchronize leads from spreadsheet rows in real-time</p>
+        <h1 className="text-3xl font-bold tracking-tight">Integrations Hub</h1>
+        <p className="text-slate-400 mt-1">Configure lead triggers and communication channels.</p>
+      </div>
+
+      {/* Tabs Selector */}
+      <div className="flex items-center gap-1.5 border-b border-zinc-900 pb-3">
+        <Link 
+          href="/client/integrations/google-sheets"
+          className="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-primary/10 border border-primary/20 text-primary"
+        >
+          📂 Google Sheets
+        </Link>
+        <Link 
+          href="/client/integrations/telegram"
+          className="px-4 py-2 rounded-xl text-xs font-bold transition-all text-zinc-400 hover:text-white"
+        >
+          ✈ Telegram Alert Bot
+        </Link>
       </div>
 
       {/* Notifications */}
@@ -462,7 +517,7 @@ export default function GoogleSheetsIntegrationPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Configuration Form / Active Sync Panel */}
+          {/* Main Workspace Section */}
           <div className="lg:col-span-2 space-y-6">
             
             {/* Connection Status Card */}
@@ -478,13 +533,12 @@ export default function GoogleSheetsIntegrationPage() {
               </div>
               <button
                 onClick={async () => {
-                  if (confirm('Disconnect Google account? Active spreadsheet connections will be removed.')) {
+                  if (confirm('Disconnect Google account? All spreadsheet connections and mappings will be removed.')) {
                     try {
-                      await api.delete(`/v1/google/connections/all`); // Disconnect completely or delete conn
+                      await api.delete(`/v1/google/connections/all`);
                       loadStatusAndConnections();
                     } catch {
-                      // fallback: remove spreadsheets and status if api doesn't delete-all
-                      await api.get('/v1/google/connect'); // retry status trigger
+                      await api.get('/v1/google/connect');
                       loadStatusAndConnections();
                     }
                   }
@@ -495,12 +549,20 @@ export default function GoogleSheetsIntegrationPage() {
               </button>
             </div>
 
-            {/* Config Box */}
-            {!activeConnection ? (
+            {/* Sub-Panel 1: Add/Configure Connection Form */}
+            {isConfiguring && (
               <div className="rounded-xl border border-zinc-900 bg-zinc-950 p-6 space-y-6">
-                <div className="flex items-center gap-2">
-                  <Database className="h-5 w-5 text-[#3B82F6]" />
-                  <h2 className="text-xl font-bold">Configure Google Sheet Connection</h2>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Database className="h-5 w-5 text-[#3B82F6]" />
+                    <h2 className="text-xl font-bold">Configure Google Sheet Connection</h2>
+                  </div>
+                  <button
+                    onClick={() => setIsConfiguring(false)}
+                    className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" /> Back
+                  </button>
                 </div>
 
                 {/* Connection Mode Selection Toggle */}
@@ -513,7 +575,6 @@ export default function GoogleSheetsIntegrationPage() {
                       setSheets([]);
                       setHeaders([]);
                       setErrorMsg(null);
-                      setSuccessMsg(null);
                     }}
                     type="button"
                     className={`flex-1 pb-3 text-sm font-semibold text-center border-b-2 cursor-pointer transition-colors ${
@@ -532,7 +593,6 @@ export default function GoogleSheetsIntegrationPage() {
                       setSheets([]);
                       setHeaders([]);
                       setErrorMsg(null);
-                      setSuccessMsg(null);
                     }}
                     type="button"
                     className={`flex-1 pb-3 text-sm font-semibold text-center border-b-2 cursor-pointer transition-colors ${
@@ -546,7 +606,6 @@ export default function GoogleSheetsIntegrationPage() {
                 </div>
 
                 <form onSubmit={handleSaveConnection} className="space-y-6">
-                  {/* Select File via Drive */}
                   {connectMode === 'drive' && (
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
@@ -569,7 +628,6 @@ export default function GoogleSheetsIntegrationPage() {
                     </div>
                   )}
 
-                  {/* Select File via URL */}
                   {connectMode === 'url' && !selectedSpreadsheetId && (
                     <div className="space-y-4">
                       <div>
@@ -584,9 +642,6 @@ export default function GoogleSheetsIntegrationPage() {
                           className="w-full rounded-lg border border-zinc-900 bg-black px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
                           disabled={fetchingUrlInfo}
                         />
-                        <p className="text-[10px] text-zinc-500 mt-1.5">
-                          Make sure you have granted permission for the sheet to your connected Google account.
-                        </p>
                       </div>
                       <button
                         onClick={handleFetchSpreadsheetByUrl}
@@ -599,7 +654,6 @@ export default function GoogleSheetsIntegrationPage() {
                     </div>
                   )}
 
-                  {/* Spreadsheet Name resolved readout (readonly) */}
                   {connectMode === 'url' && selectedSpreadsheetId && (
                     <div className="p-3.5 rounded-lg border border-zinc-900 bg-black/40 flex justify-between items-center text-xs">
                       <div>
@@ -620,6 +674,7 @@ export default function GoogleSheetsIntegrationPage() {
                       </button>
                     </div>
                   )}
+
                   {selectedSpreadsheetId && (
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
@@ -642,7 +697,6 @@ export default function GoogleSheetsIntegrationPage() {
                     </div>
                   )}
 
-                  {/* Sync Settings */}
                   {selectedSheetName && (
                     <div className="space-y-6 border-t border-zinc-900/60 pt-6">
                       <div className="flex items-center gap-2">
@@ -666,7 +720,6 @@ export default function GoogleSheetsIntegrationPage() {
                         </select>
                       </div>
 
-                      {/* Header Mapping Section */}
                       <div className="space-y-4 border-t border-zinc-900/60 pt-6">
                         <div className="flex items-center gap-2">
                           <ArrowLeftRight className="h-5 w-5 text-[#3B82F6]" />
@@ -694,9 +747,6 @@ export default function GoogleSheetsIntegrationPage() {
                                     {h}
                                   </option>
                                 ))}
-                                {headers.length === 0 && (
-                                  <option value="" disabled>No columns detected. Save connection to map manually.</option>
-                                )}
                               </select>
                             </div>
                           ))}
@@ -714,53 +764,56 @@ export default function GoogleSheetsIntegrationPage() {
                   )}
                 </form>
               </div>
-            ) : (
-              /* Connected Active Sheet Panel */
-              <div className="rounded-xl border border-zinc-900 bg-zinc-950 p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-white">Active Spreadsheet Integration</h2>
-                    <p className="text-xs text-zinc-500 mt-1">Currently synchronising rows from the selected file.</p>
+            )}
+
+            {/* Sub-Panel 2: Active Connection Details View */}
+            {activeConnection && (
+              <div className="rounded-xl border border-zinc-900 bg-zinc-950 p-6 space-y-6 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
+                  <div className="flex items-center gap-3">
+                    <Database className="h-5.5 w-5.5 text-[#3B82F6]" />
+                    <div>
+                      <h2 className="text-xl font-bold text-white truncate max-w-sm sm:max-w-md">{activeConnection.spreadsheetName}</h2>
+                      <p className="text-xs text-zinc-500 mt-0.5">Tab: {activeConnection.sheetName}</p>
+                    </div>
                   </div>
-                  <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-bold border ${
-                      activeConnection.syncEnabled
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
-                    }`}
+                  <button
+                    onClick={() => setActiveConnection(null)}
+                    className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white"
                   >
-                    {activeConnection.syncEnabled ? 'Auto-Sync Active' : 'Auto-Sync Disabled'}
-                  </span>
+                    <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
+                  </button>
                 </div>
 
                 {/* Connection Stats Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="rounded-lg bg-black border border-zinc-900 p-4">
-                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Spreadsheet</p>
-                    <p className="text-sm font-bold text-white truncate">{activeConnection.spreadsheetName}</p>
-                    <p className="text-[10px] font-mono text-zinc-600 mt-0.5 truncate">{activeConnection.spreadsheetId}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Status</p>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-bold border inline-block ${
+                        activeConnection.syncEnabled
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                      }`}
+                    >
+                      {activeConnection.syncEnabled ? 'Auto-Sync Active' : 'Auto-Sync Paused'}
+                    </span>
                   </div>
                   <div className="rounded-lg bg-black border border-zinc-900 p-4">
-                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Sheet Tab Name</p>
-                    <p className="text-sm font-bold text-white">{activeConnection.sheetName}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Sync Interval</p>
+                    <p className="text-sm font-bold text-white">Every {activeConnection.syncInterval} mins</p>
                   </div>
                   <div className="rounded-lg bg-black border border-zinc-900 p-4">
-                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Interval</p>
-                    <p className="text-sm font-bold text-white">Every {activeConnection.syncInterval} minutes</p>
+                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Last Synced</p>
+                    <p className="text-xs font-bold text-zinc-300">
+                      {activeConnection.lastSyncAt ? new Date(activeConnection.lastSyncAt).toLocaleString() : 'Never synced yet.'}
+                    </p>
                   </div>
-                </div>
-
-                {/* Last Sync Details */}
-                <div className="text-xs text-zinc-400">
-                  📅 Last Synchronized:{' '}
-                  <span className="text-zinc-200 font-medium">
-                    {activeConnection.lastSyncAt ? new Date(activeConnection.lastSyncAt).toLocaleString() : 'Never synced yet.'}
-                  </span>
                 </div>
 
                 {/* Column mapping details table */}
                 <div className="border-t border-zinc-900 pt-6">
-                  <h3 className="font-bold text-sm text-zinc-300 mb-3">Field Mappings Map</h3>
+                  <h3 className="font-bold text-sm text-zinc-300 mb-3">CRM Field Mappings Map</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     {activeConnection.mappings.map((m) => (
                       <div key={m.crmField} className="flex justify-between p-2.5 rounded bg-black/60 border border-zinc-900/60">
@@ -771,24 +824,24 @@ export default function GoogleSheetsIntegrationPage() {
                   </div>
                 </div>
 
-                {/* Integration Actions */}
+                {/* Actions */}
                 <div className="border-t border-zinc-900 pt-6 flex flex-col sm:flex-row gap-3">
                   <button
-                    onClick={handleSyncNow}
+                    onClick={() => handleSyncNow(activeConnection.id)}
                     disabled={syncingNow}
                     className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 py-3 text-sm font-semibold text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <RotateCw className={`h-4.5 w-4.5 ${syncingNow ? 'animate-spin' : ''}`} />
-                    {syncingNow ? 'Syncing spreadsheet rows...' : 'Sync Spreadsheet Now'}
+                    {syncingNow ? 'Syncing...' : 'Sync Spreadsheet Now'}
                   </button>
                   <button
-                    onClick={handleToggleSync}
+                    onClick={() => handleToggleSync(activeConnection)}
                     className="flex-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 py-3 text-sm font-semibold text-white border border-zinc-700 transition-all cursor-pointer"
                   >
-                    {activeConnection.syncEnabled ? '⏸️ Pause Auto-Sync' : '▶️ Resume Auto-Sync'}
+                    {activeConnection.syncEnabled ? '⏸ Pause Auto-Sync' : '▶ Resume Auto-Sync'}
                   </button>
                   <button
-                    onClick={handleRemoveConnection}
+                    onClick={() => handleRemoveConnection(activeConnection.id, activeConnection.spreadsheetName)}
                     className="rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-5 py-3 text-sm font-semibold transition-all cursor-pointer"
                   >
                     Disconnect Sheet
@@ -797,7 +850,7 @@ export default function GoogleSheetsIntegrationPage() {
 
                 {/* Statistics Box */}
                 {syncStats && (
-                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 p-5 mt-4 space-y-3">
+                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 p-5 space-y-3">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Import Statistics</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                       <div>
@@ -821,6 +874,101 @@ export default function GoogleSheetsIntegrationPage() {
                 )}
               </div>
             )}
+
+            {/* Sub-Panel 3: Connections Dashboard List */}
+            {!isConfiguring && !activeConnection && (
+              <div className="rounded-xl border border-zinc-900 bg-zinc-950 p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Google Spreadsheet Connections</h2>
+                    <p className="text-xs text-zinc-500 mt-0.5">Manage connected sheet sources for syncing leads.</p>
+                  </div>
+                  <button
+                    onClick={startConfigureNew}
+                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                  >
+                    <Plus size={14} /> Add Spreadsheet Connection
+                  </button>
+                </div>
+
+                {connections.length === 0 ? (
+                  <div className="text-center py-12 space-y-3">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-650">
+                      <Database className="h-6 w-6" />
+                    </div>
+                    <p className="text-zinc-500 text-sm italic">No Google spreadsheets connected yet.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-zinc-900 text-zinc-500 font-bold uppercase tracking-wider font-semibold">
+                          <th className="pb-3 pr-4">Spreadsheet / Tab</th>
+                          <th className="pb-3 px-4">Interval</th>
+                          <th className="pb-3 px-4">Status</th>
+                          <th className="pb-3 px-4">Last Synced</th>
+                          <th className="pb-3 pl-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {connections.map((conn) => (
+                          <tr key={conn.id} className="border-b border-zinc-900/60 hover:bg-zinc-900/10 transition-colors">
+                            <td className="py-4 pr-4">
+                              <span className="font-bold text-white block text-sm max-w-[200px] truncate">{conn.spreadsheetName}</span>
+                              <span className="text-[10px] text-zinc-500 block mt-0.5 font-medium">Tab: {conn.sheetName}</span>
+                            </td>
+                            <td className="py-4 px-4 text-zinc-300 font-medium">Every {conn.syncInterval}m</td>
+                            <td className="py-4 px-4">
+                              <span
+                                className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                                  conn.syncEnabled
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                                }`}
+                              >
+                                {conn.syncEnabled ? 'Active' : 'Paused'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-zinc-500 font-mono text-[10px]">
+                              {conn.lastSyncAt ? new Date(conn.lastSyncAt).toLocaleDateString() + ' ' + new Date(conn.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
+                            </td>
+                            <td className="py-4 pl-4 text-right flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleSelectConnection(conn)}
+                                className="p-2 rounded hover:bg-zinc-900 text-zinc-400 hover:text-white"
+                                title="View details & mappings"
+                              >
+                                <Eye size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleToggleSync(conn)}
+                                className="text-[10px] font-bold px-2 py-1.5 rounded border border-zinc-800 bg-black hover:bg-zinc-900 text-zinc-400 hover:text-white"
+                              >
+                                {conn.syncEnabled ? 'Pause' : 'Resume'}
+                              </button>
+                              <button
+                                onClick={() => handleSyncNow(conn.id)}
+                                className="p-2 rounded hover:bg-zinc-900 text-emerald-400"
+                                title="Sync now"
+                              >
+                                <RotateCw size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleRemoveConnection(conn.id, conn.spreadsheetName)}
+                                className="p-2 rounded hover:bg-red-500/10 text-red-400/80 hover:text-red-400"
+                                title="Disconnect"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sync History Logs Panel */}
@@ -836,21 +984,21 @@ export default function GoogleSheetsIntegrationPage() {
               <p className="text-zinc-500 text-xs italic">No import sync logs recorded yet.</p>
             )}
 
-            <div className="space-y-4 max-h-[450px] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
               {history.map((log) => (
                 <div key={log.id} className="p-3.5 rounded-lg border border-zinc-900 bg-black/40 text-xs space-y-2">
                   <div className="flex justify-between font-bold text-zinc-400">
-                    <span>{new Date(log.createdAt).toLocaleDateString()}</span>
-                    <span>{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="text-zinc-300 truncate max-w-[120px]">{log.spreadsheetName || 'Spreadsheet'}</span>
+                    <span className="text-zinc-500">{new Date(log.createdAt).toLocaleDateString()}</span>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 border-t border-zinc-900/60 pt-2">
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Total Rows</span>
+                      <span className="text-zinc-500">Evaluated</span>
                       <span className="font-semibold text-zinc-300">{log.totalRows}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-emerald-500/70">Imported</span>
+                      <span className="text-emerald-500/70">New Leads</span>
                       <span className="font-bold text-emerald-400">+{log.importedRows}</span>
                     </div>
                     <div className="flex justify-between">
@@ -871,4 +1019,3 @@ export default function GoogleSheetsIntegrationPage() {
     </div>
   );
 }
-

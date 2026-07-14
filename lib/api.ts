@@ -92,15 +92,19 @@ api.interceptors.response.use(
         // Retry original request
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         processQueue(refreshError, null);
         isRefreshing = false;
         
-        console.warn('[API Client] Refresh token rotation failed. Clearing session.');
-        clearAuthSession();
-        
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+        const isAuthError = refreshError.response?.status === 400 || refreshError.response?.status === 401;
+        if (isAuthError) {
+          console.warn('[API Client] Refresh token rotation failed (unauthorized). Clearing session.');
+          clearAuthSession();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+        } else {
+          console.warn('[API Client] Refresh token rotation failed due to network/server error. Session retained.', refreshError.message);
         }
         return Promise.reject(refreshError);
       }

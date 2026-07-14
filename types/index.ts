@@ -2,7 +2,7 @@ export type AgencyPlan = 'free_trial' | 'starter' | 'pro';
 
 export type UserRole = 'super_admin' | 'agency_admin' | 'client_owner' | 'sales_manager' | 'sales_executive';
 
-export type LeadStage = 'NEW' | 'CONTACTED' | 'FOLLOW_UP' | 'QUALIFIED' | 'NEGOTIATION' | 'WON' | 'LOST' | 'BOOKED' | 'NO_NEED' | 'WRONG_LEAD';
+export type LeadStage = 'NEW' | 'CONTACTED' | 'FOLLOW_UP' | 'QUALIFIED' | 'NEGOTIATION' | 'WON' | 'LOST' | 'BOOKED' | 'NO_NEED' | 'WRONG_LEAD' | 'CALL_NOT_ATTENDED';
 
 export type FollowUpStatus = 'pending' | 'done' | 'missed';
 

@@ -12,6 +12,7 @@ import { LeadStage, Lead } from '../../../types';
 import { Drawer } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { AppCard } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   Database, 
   ArrowLeftRight, 
@@ -33,7 +34,9 @@ import {
   Trash2,
   Plus,
   Upload,
-  Bell
+  Download,
+  Bell,
+  Send
 } from 'lucide-react';
 import { FiPhone, FiPhoneCall, FiArrowRight } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
@@ -41,6 +44,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 const STAGES: { value: LeadStage; label: string; color: string; dotColor: string }[] = [
   { value: 'NEW', label: 'New', color: 'border-cyan-500/20 bg-cyan-500/5 text-cyan-400', dotColor: 'bg-cyan-400' },
   { value: 'CONTACTED', label: 'Contacted', color: 'border-amber-500/20 bg-amber-500/5 text-amber-400', dotColor: 'bg-amber-400' },
+  { value: 'CALL_NOT_ATTENDED', label: 'Call Not Attended', color: 'border-yellow-500/20 bg-yellow-500/5 text-yellow-400', dotColor: 'bg-yellow-400' },
   { value: 'QUALIFIED', label: 'Qualified', color: 'border-indigo-500/20 bg-indigo-500/5 text-indigo-400', dotColor: 'bg-indigo-400' },
   { value: 'NEGOTIATION', label: 'Proposal', color: 'border-purple-500/20 bg-purple-500/5 text-purple-400', dotColor: 'bg-purple-400' },
   { value: 'WON', label: 'Won', color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400', dotColor: 'bg-emerald-400' },
@@ -88,6 +92,27 @@ export default function LeadsPage() {
 
   const { socket, connected } = useSocket();
   const [realtimeNotification, setRealtimeNotification] = useState<string | null>(null);
+
+  const [notificationLogs, setNotificationLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  const fetchNotificationLogs = async () => {
+    try {
+      setLoadingLogs(true);
+      const res = await api.get('/v1/client/telegram/logs');
+      setNotificationLogs(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch notification logs:', err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'dashboard') {
+      fetchNotificationLogs();
+    }
+  }, [tab]);
   // Default to 'list' on mobile, 'board' on desktop
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
@@ -214,6 +239,57 @@ export default function LeadsPage() {
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => removeToast(id), 5000);
   }, [removeToast]);
+
+  const handleExportCSV = () => {
+    if (leads.length === 0) {
+      addToast('No leads available to export.', 'warning');
+      return;
+    }
+
+    // Define CSV Headers including lead metadata and stage status
+    const headers = ['Lead ID', 'Name', 'Phone', 'Email', 'City', 'Source', 'Stage Status', 'Created Date'];
+
+    // Map leads rows
+    const rows = leads.map((lead) => [
+      lead.id,
+      cleanText(lead.name),
+      lead.phone ? cleanText(lead.phone) : '',
+      lead.email || '',
+      lead.city || '',
+      lead.source || '',
+      lead.stage || '',
+      new Date(lead.createdAt).toLocaleString(),
+    ]);
+
+    // Construct CSV content string
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row
+          .map((val) => {
+            const escaped = String(val).replace(/"/g, '""');
+            if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
+              return `"${escaped}"`;
+            }
+            return escaped;
+          })
+          .join(',')
+      ),
+    ].join('\n');
+
+    // Create download trigger
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leads_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    addToast('CSV export downloaded successfully!', 'success');
+  };
 
   /** Shows a rich 2-line toast card for new lead arrivals. */
   const addLeadToast = React.useCallback((lead: Record<string, any>) => {
@@ -644,6 +720,82 @@ export default function LeadsPage() {
             </div>
           </div>
         </AppCard>
+
+        {/* Notification History Card */}
+        <AppCard className="p-6 space-y-6">
+          <div className="flex justify-between items-center border-b border-border pb-4">
+            <div>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Send className="h-4.5 w-4.5 text-blue-400" /> Lead Notification Logs
+              </h3>
+              <p className="text-xs text-text-secondary mt-1">Audit log of system alerts sent to connected Telegram recipients</p>
+            </div>
+            <button
+              onClick={fetchNotificationLogs}
+              disabled={loadingLogs}
+              className="px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+            >
+              <RotateCw size={12} className={loadingLogs ? 'animate-spin' : ''} />
+              Refresh Logs
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card-secondary/15 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-semibold text-text-secondary min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-border/80 text-[10px] text-text-secondary/70 uppercase font-extrabold bg-card-secondary/20">
+                    <th className="p-4">Channel</th>
+                    <th className="p-4">Recipient Chat</th>
+                    <th className="p-4">Title / Payload</th>
+                    <th className="p-4">Delivery Status</th>
+                    <th className="p-4">Dispatched Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {notificationLogs.map((log) => (
+                    <tr key={log.id} className="border-b border-border/40 hover:bg-hover/10 transition-colors">
+                      <td className="p-4">
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-md text-blue-400">
+                          {log.channel}
+                        </span>
+                      </td>
+                      <td className="p-4 text-white font-semibold">{log.recipient}</td>
+                      <td className="p-4">
+                        <div className="max-w-md truncate" title={log.message}>
+                          <span className="font-bold text-white block text-[11px] mb-0.5">{log.title || 'Notification'}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{log.message}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {log.status === 'SENT' ? (
+                          <Badge variant="success">Dispatched</Badge>
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="warning">Failed</Badge>
+                            {log.error && (
+                              <span className="text-[9px] text-red-400 font-mono max-w-xs truncate" title={log.error}>
+                                {log.error}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-4 text-slate-500">{new Date(log.sentAt).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {notificationLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-text-secondary italic">
+                        {loadingLogs ? 'Loading notification history...' : 'No notifications have been dispatched yet.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </AppCard>
         
         {/* Floating Toast Notification Wrapper */}
         <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
@@ -714,6 +866,10 @@ export default function LeadsPage() {
               Import
             </Button>
           </Link>
+
+          <Button onClick={handleExportCSV} variant="secondary" size="sm" icon={<Download size={13} />}>
+            Export
+          </Button>
 
           <Button onClick={() => setIsAddLeadOpen(true)} size="sm" icon={<Plus size={13} />}>
             Add Lead
@@ -1299,20 +1455,20 @@ export default function LeadsPage() {
 
       {/* Bulk Action Bar */}
       {isSuperAdmin && selectedLeadIds.length > 0 && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 bg-zinc-950/80 backdrop-blur-xl border border-red-500/20 px-6 py-4 rounded-2xl flex items-center gap-6 shadow-2xl shadow-red-500/10 animate-in slide-in-from-bottom-5 duration-250 pointer-events-auto">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 bg-zinc-950/80 backdrop-blur-xl border border-red-500/20 px-6 py-4 rounded-2xl flex flex-col sm:flex-row items-center gap-3 sm:gap-6 w-[calc(100%-2rem)] max-w-sm sm:max-w-md shadow-2xl shadow-red-500/10 animate-in slide-in-from-bottom-5 duration-250 pointer-events-auto">
           <span className="text-sm font-semibold text-zinc-300">
             Selected <strong className="text-white font-extrabold">{selectedLeadIds.length}</strong> {selectedLeadIds.length === 1 ? 'lead' : 'leads'}
           </span>
-          <div className="flex gap-3">
+          <div className="flex gap-3 w-full sm:w-auto">
             <button
               onClick={() => setSelectedLeadIds([])}
-              className="px-4 py-2 text-xs font-semibold bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-lg transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={handleBulkDelete}
-              className="px-4 py-2 text-xs font-semibold bg-red-650 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg shadow-red-600/10 cursor-pointer flex items-center gap-1.5"
+              className="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold bg-red-655 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg shadow-red-600/10 cursor-pointer flex items-center justify-center gap-1.5"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete Selected

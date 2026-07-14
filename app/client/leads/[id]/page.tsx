@@ -355,6 +355,7 @@ export default function LeadDetailPage() {
   const STAGE_LABELS: Record<string, string> = {
     NEW: 'New',
     CONTACTED: 'Contacted',
+    CALL_NOT_ATTENDED: 'Call Not Attended',
     FOLLOW_UP: 'Follow Up',
     QUALIFIED: 'Qualified',
     NEGOTIATION: 'Negotiation',

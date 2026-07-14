@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../hooks/useAuth';
+import { api } from '../../../lib/api';
 import { Button } from '@/components/ui/button';
 import { AppCard } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +30,8 @@ import {
   Cpu,
   ChevronRight,
   Sparkles,
-  Users
+  Users,
+  Send
 } from 'lucide-react';
 
 type TabType = 'general' | 'users' | 'integrations' | 'notifications' | 'security' | 'billing';
@@ -92,6 +94,68 @@ export default function AgencySettingsPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Agency Admin');
   const [showInviteForm, setShowInviteForm] = useState(false);
+
+  // Telegram Integration State
+  const [telegramStatus, setTelegramStatus] = useState<{
+    isConnected: boolean;
+    botName?: string;
+    botUsername?: string;
+    botUrl?: string;
+  }>({ isConnected: false });
+  const [botTokenInput, setBotTokenInput] = useState('');
+  const [connectingBot, setConnectingBot] = useState(false);
+  const [loadingTelegram, setLoadingTelegram] = useState(true);
+
+  const fetchTelegramStatus = async () => {
+    try {
+      setLoadingTelegram(true);
+      const res = await api.get('/v1/telegram/status');
+      setTelegramStatus(res.data.data);
+    } catch (err: any) {
+      console.error('Failed to fetch Telegram status:', err);
+    } finally {
+      setLoadingTelegram(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTelegramStatus();
+  }, []);
+
+  const handleConnectTelegram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!botTokenInput.trim()) {
+      showToast('Please enter a bot token.', 'info');
+      return;
+    }
+    try {
+      setConnectingBot(true);
+      const res = await api.post('/v1/telegram/connect', { botToken: botTokenInput });
+      setTelegramStatus(res.data.data);
+      setBotTokenInput('');
+      showToast('Telegram bot connected successfully!', 'success');
+    } catch (err: any) {
+      showToast(err.response?.data?.error?.message || 'Failed to connect Telegram bot.', 'info');
+    } finally {
+      setConnectingBot(false);
+    }
+  };
+
+  const handleDisconnectTelegram = async () => {
+    if (!confirm('Are you sure you want to disconnect the Telegram bot? Client workspaces will lose notification delivery.')) {
+      return;
+    }
+    try {
+      setLoadingTelegram(true);
+      const res = await api.delete('/v1/telegram/disconnect');
+      setTelegramStatus(res.data.data);
+      showToast('Telegram bot disconnected.', 'info');
+    } catch (err: any) {
+      showToast(err.response?.data?.error?.message || 'Failed to disconnect bot.', 'info');
+    } finally {
+      setLoadingTelegram(false);
+    }
+  };
 
   const handleCopyToken = () => {
     navigator.clipboard.writeText('gp_live_d813cb6e1c4021ab5039ea81b0a8cd1a2b');
@@ -486,6 +550,24 @@ export default function AgencySettingsPage() {
                               showToast(`WhatsApp Sync ${val ? 'Activated' : 'Deactivated'}`, val ? 'success' : 'info');
                             }} 
                           />
+                        </div>
+                      </div>
+
+                      {/* Telegram Bot Card */}
+                      <div className="p-4.5 rounded-2xl border border-border bg-card-secondary/15 space-y-4">
+                        <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400 shrink-0 border border-blue-500/15 shadow-sm shadow-blue-500/5">
+                            <Send size={18} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-white text-xs">Telegram Bot Notifications</h4>
+                            <p className="text-[10.5px] text-text-secondary mt-1 max-w-md">
+                              Telegram bots are now configured and managed individually per client workspace.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-zinc-950/60 rounded-xl border border-zinc-900/60 text-[11px] text-text-secondary leading-relaxed">
+                          ⚠️ <b>Note for Agency Admins:</b> Each client workspace can now connect their own dedicated Telegram Bot. Ask your clients to navigate to their workspace <b>Settings &gt; Integrations &gt; Telegram Alert Bot</b> to configure their tokens and manage chat recipients directly.
                         </div>
                       </div>
                     </div>
