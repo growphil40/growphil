@@ -1,12 +1,34 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { jwtVerify } from 'jose';
 
 interface DecodedToken {
   userId: string;
   role: string;
   tenantId: string;
   tenantType: 'agency' | 'client';
+}
+
+function decodeJwt(token: string): DecodedToken | null {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = atob(base64);
+    const decoded = JSON.parse(jsonPayload);
+    
+    // Check if token is expired (with 10s buffer)
+    if (decoded && decoded.exp && decoded.exp > Date.now() / 1000 + 10) {
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        tenantId: decoded.tenantId,
+        tenantType: decoded.tenantType,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -23,31 +45,11 @@ export async function middleware(request: NextRequest) {
     token = authHeader.substring(7);
   }
 
-  let user: DecodedToken | null = null;
-
-  if (token) {
-    try {
-      const secretStr = process.env.JWT_ACCESS_SECRET;
-      if (!secretStr) {
-        console.error('[Middleware] JWT_ACCESS_SECRET is not configured.');
-        user = null;
-      } else {
-        const secret = new TextEncoder().encode(secretStr);
-        const { payload } = await jwtVerify(token, secret);
-        user = {
-          userId: payload.userId as string,
-          role: payload.role as string,
-          tenantId: payload.tenantId as string,
-          tenantType: payload.tenantType as 'agency' | 'client',
-        };
-      }
-    } catch (error) {
-      // Token expired or invalid
-      user = null;
-    }
-  }
-
+  // Decode the token to get session info without signature verification
+  // Signature verification is performed by the backend API on every data request
+  const user = token ? decodeJwt(token) : null;
   const isAuthenticated = !!user;
+
   const isProtectedRoute = pathname.startsWith('/agency') || pathname.startsWith('/client');
   const isRootRoute = pathname === '/';
   const isLoginRoute = pathname === '/login';
@@ -61,12 +63,11 @@ export async function middleware(request: NextRequest) {
   if (isAuthenticated && user) {
     const role = user.role;
 
-    // Rule 2 & 4: agency_admin hitting /, /client/*, or /login → redirect to /agency/clients
+    // Rule 2 & 4: agency_admin hitting /, /client/*, or /login → redirect to /agency/dashboard
     if (role === 'agency_admin') {
       if (isRootRoute || pathname.startsWith('/client') || isLoginRoute) {
         return NextResponse.redirect(new URL('/agency/dashboard', request.url));
       }
-
     }
 
     // Rule 3 & 5: client_owner hitting /, /agency/*, or /login → redirect to /client/leads

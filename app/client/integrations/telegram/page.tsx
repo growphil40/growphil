@@ -128,6 +128,22 @@ export default function ClientTelegramIntegrationPage() {
     }
   };
 
+  const [sendingTest, setSendingTest] = useState(false);
+
+  const handleSendTestAlert = async () => {
+    try {
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      setSendingTest(true);
+      await api.post('/v1/client/telegram/test-alert');
+      setSuccessMsg('Test notification sent successfully to all active Telegram recipients!');
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.error?.message || 'Failed to send test alert.');
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   if (loading && !status) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
@@ -249,6 +265,15 @@ export default function ClientTelegramIntegrationPage() {
                   <p className="text-xs text-zinc-500 mt-0.5">Alert recipients via multiple configured Telegram bots.</p>
                 </div>
                 <div className="flex gap-2">
+                  {integrations.length > 0 && (
+                    <button
+                      onClick={handleSendTestAlert}
+                      disabled={sendingTest}
+                      className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black hover:bg-zinc-900 px-3.5 py-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {sendingTest ? 'Sending...' : '🧪 Send Test Alert'}
+                    </button>
+                  )}
                   <button
                     onClick={() => loadTelegramStatus(true)}
                     disabled={refreshing}
