@@ -24,6 +24,8 @@ interface Recipient {
   username: string | null;
   firstName: string | null;
   lastName: string | null;
+  recipientName: string | null;
+  connectionMethod?: string;
   isActive: boolean;
   connectedAt: string;
 }
@@ -52,8 +54,12 @@ export default function ClientTelegramIntegrationPage() {
   
   // Connection Form states
   const [botTokenInput, setBotTokenInput] = useState('');
+  const [chatIdInput, setChatIdInput] = useState('');
+  const [recipientNameInput, setRecipientNameInput] = useState('');
   const [connectingBot, setConnectingBot] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
   const [isConfiguring, setIsConfiguring] = useState(false);
+  const [justConnectedBot, setJustConnectedBot] = useState<any | null>(null);
 
   const loadTelegramStatus = useCallback(async (isRefresh = false) => {
     try {
@@ -75,8 +81,8 @@ export default function ClientTelegramIntegrationPage() {
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!botTokenInput.trim()) {
-      setErrorMsg('Please enter a valid bot token.');
+    if (!botTokenInput.trim() || !chatIdInput.trim()) {
+      setErrorMsg('Please enter both Bot Token and Chat ID.');
       return;
     }
     try {
@@ -84,16 +90,53 @@ export default function ClientTelegramIntegrationPage() {
       setSuccessMsg(null);
       setConnectingBot(true);
       
-      await api.post('/v1/client/telegram/connect', { botToken: botTokenInput });
+      const res = await api.post('/v1/client/telegram/connect', { 
+        botToken: botTokenInput.trim(),
+        chatId: chatIdInput.trim(),
+        recipientName: recipientNameInput.trim() || undefined
+      });
       
       setBotTokenInput('');
+      setChatIdInput('');
+      setRecipientNameInput('');
       setIsConfiguring(false);
-      setSuccessMsg('Telegram bot connected successfully! Please follow the linking instructions.');
+      
+      // Store just connected details for success screen
+      setJustConnectedBot({
+        botName: res.data.integration.botName,
+        botUsername: res.data.integration.botUsername,
+        recipientName: res.data.recipient.recipientName || 'Unnamed Recipient',
+        chatId: res.data.recipient.chatId,
+        id: res.data.integration.id
+      });
+      
+      setSuccessMsg('Telegram bot connected successfully!');
       loadTelegramStatus(true);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error?.message || 'Failed to connect Telegram bot.');
     } finally {
       setConnectingBot(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!botTokenInput.trim() || !chatIdInput.trim()) {
+      setErrorMsg('Please enter both Bot Token and Chat ID to test.');
+      return;
+    }
+    try {
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      setTestingConnection(true);
+      await api.post('/v1/client/telegram/test-connection', {
+        botToken: botTokenInput.trim(),
+        chatId: chatIdInput.trim(),
+      });
+      setSuccessMsg('✅ Connection Successful! Test message delivered.');
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.error?.message || 'Connection test failed.');
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -107,6 +150,7 @@ export default function ClientTelegramIntegrationPage() {
       setLoading(true);
       await api.delete(`/v1/client/telegram/disconnect/${integrationId}`);
       setSuccessMsg(`Telegram bot "${botName}" disconnected successfully.`);
+      setJustConnectedBot(null);
       loadTelegramStatus(true);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error?.message || 'Failed to disconnect Telegram bot.');
@@ -144,6 +188,38 @@ export default function ClientTelegramIntegrationPage() {
     }
   };
 
+  const handleSimulateWebhook = async (integrationId: string) => {
+    try {
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      await api.post(`/v1/telegram/webhook/${integrationId}`, {
+        update_id: 123456789,
+        message: {
+          message_id: 1,
+          from: {
+            id: 123456789,
+            first_name: "Mock",
+            last_name: "User",
+            username: "mock_user"
+          },
+          chat: {
+            id: 123456789,
+            first_name: "Mock",
+            last_name: "User",
+            username: "mock_user",
+            type: "private"
+          },
+          date: Math.floor(Date.now() / 1000),
+          text: `/start integration_${integrationId}`
+        }
+      });
+      setSuccessMsg('✅ Webhook update simulated successfully!');
+      loadTelegramStatus(true);
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.error?.message || 'Failed to simulate webhook call.');
+    }
+  };
+
   if (loading && !status) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
@@ -157,6 +233,77 @@ export default function ClientTelegramIntegrationPage() {
 
   const integrations = status?.integrations || [];
   const totalRecipientsCount = integrations.reduce((acc, curr) => acc + curr.recipientsCount, 0);
+
+  if (justConnectedBot) {
+    return (
+      <div className="space-y-8 max-w-xl mx-auto py-4">
+        {/* Page Header */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold tracking-tight">Connect Telegram Bot</h1>
+          <p className="text-slate-400 mt-1">Connect your Telegram bot and register a recipient chat to receive instant lead alerts.</p>
+        </div>
+
+        <div className="rounded-xl border border-zinc-900 bg-zinc-950 p-8 space-y-6 text-center shadow-xl">
+          <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+            <CheckCircle2 className="h-8 w-8" />
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-white">✅ Telegram Bot Connected</h2>
+            <p className="text-zinc-400 text-sm">Your bot is configured and ready to deliver real-time notifications.</p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-900 bg-black p-5 text-left space-y-3.5 text-sm">
+            <div className="flex justify-between items-center border-b border-zinc-900 pb-2">
+              <span className="text-zinc-500 font-medium">Bot Name</span>
+              <span className="text-white font-bold">{justConnectedBot.botName}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-zinc-900 pb-2">
+              <span className="text-zinc-500 font-medium">Bot Username</span>
+              <span className="text-blue-400 font-mono">@{justConnectedBot.botUsername}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-zinc-900 pb-2">
+              <span className="text-zinc-500 font-medium">Recipient Name</span>
+              <span className="text-white font-semibold">{justConnectedBot.recipientName}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-zinc-900 pb-2">
+              <span className="text-zinc-500 font-medium">Chat ID</span>
+              <span className="text-zinc-350 font-mono">{justConnectedBot.chatId}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-zinc-500 font-medium">Status</span>
+              <span className="text-emerald-400 font-bold uppercase tracking-wider text-xs">Connected</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-2 justify-center">
+            <button
+              onClick={handleSendTestAlert}
+              disabled={sendingTest}
+              className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 py-3 text-xs font-bold text-white transition-all disabled:opacity-50 cursor-pointer animate-pulse-subtle"
+            >
+              {sendingTest ? 'Sending...' : '🧪 Send Test Alert'}
+            </button>
+            <button
+              onClick={() => handleDisconnect(justConnectedBot.id, justConnectedBot.botName)}
+              className="flex-1 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 py-3 text-xs font-bold text-red-400 transition-all cursor-pointer"
+            >
+              Disconnect Bot
+            </button>
+            <button
+              onClick={() => {
+                setJustConnectedBot(null);
+                setSuccessMsg(null);
+              }}
+              className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 py-3 text-xs font-bold text-zinc-300 transition-all cursor-pointer"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -230,28 +377,74 @@ export default function ClientTelegramIntegrationPage() {
               <form onSubmit={handleConnect} className="space-y-4 pt-2">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
-                    Telegram Bot Token
+                    Telegram Bot Token <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={botTokenInput}
                     onChange={(e) => setBotTokenInput(e.target.value)}
-                    placeholder="e.g. 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                    placeholder="123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                     className="w-full rounded-lg border border-zinc-900 bg-black px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
-                    disabled={connectingBot}
+                    disabled={connectingBot || testingConnection}
+                    required
                   />
                   <p className="text-[10px] text-zinc-500 mt-1.5">
-                    Create a bot by messaging <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">@BotFather</a> on Telegram, then copy-paste the HTTP API access token here.
+                    Create a bot using <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">@BotFather</a> and paste the HTTP API token.
                   </p>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={connectingBot || !botTokenInput.trim()}
-                  className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 py-3 text-sm font-semibold text-white transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {connectingBot ? 'Verifying & Connecting Bot...' : '🔗 Connect Bot & Enable Alerts'}
-                </button>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                    Chat ID <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={chatIdInput}
+                    onChange={(e) => setChatIdInput(e.target.value)}
+                    placeholder="e.g. 123456789 (Private), -1001234567890 (Group/Channel)"
+                    className="w-full rounded-lg border border-zinc-900 bg-black px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                    disabled={connectingBot || testingConnection}
+                    required
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1.5">
+                    Enter the Telegram Chat ID where alerts should be delivered. Private, Group, or Channel IDs are supported.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                    Recipient Name
+                  </label>
+                  <input
+                    type="text"
+                    value={recipientNameInput}
+                    onChange={(e) => setRecipientNameInput(e.target.value)}
+                    placeholder="e.g. Owner, Sales Manager, Admin, Branch Manager"
+                    className="w-full rounded-lg border border-zinc-900 bg-black px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                    disabled={connectingBot || testingConnection}
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1.5">
+                    A friendly label for this chat recipient (Optional).
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={connectingBot || testingConnection || !botTokenInput.trim() || !chatIdInput.trim()}
+                    className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 py-3 text-sm font-semibold text-white transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {connectingBot ? 'Connecting Bot...' : '🔗 Connect Bot & Enable Alerts'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={connectingBot || testingConnection || !botTokenInput.trim() || !chatIdInput.trim()}
+                    className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 py-3 text-sm font-semibold text-zinc-300 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {testingConnection ? 'Testing...' : '🧪 Test Connection'}
+                  </button>
+                </div>
               </form>
             </div>
           ) : (
@@ -265,7 +458,7 @@ export default function ClientTelegramIntegrationPage() {
                   <p className="text-xs text-zinc-500 mt-0.5">Alert recipients via multiple configured Telegram bots.</p>
                 </div>
                 <div className="flex gap-2">
-                  {integrations.length > 0 && (
+                  {totalRecipientsCount > 0 && (
                     <button
                       onClick={handleSendTestAlert}
                       disabled={sendingTest}
@@ -347,6 +540,15 @@ export default function ClientTelegramIntegrationPage() {
                         <li>Send the bot a message or click <b>Start</b> (deep links link automatically).</li>
                         <li>Refresh this page, and the recipient chat details will appear below!</li>
                       </ol>
+                      <div className="pt-2 border-t border-zinc-900/40 mt-1 flex justify-between items-center">
+                        <span className="text-[10px] text-zinc-500">Developing locally?</span>
+                        <button
+                          onClick={() => handleSimulateWebhook(bot.id)}
+                          className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[10px] font-bold text-zinc-300 rounded transition-all cursor-pointer"
+                        >
+                          🧪 Simulate /Start Webhook
+                        </button>
+                      </div>
                     </div>
 
                     {/* Recipients Section */}
@@ -365,10 +567,19 @@ export default function ClientTelegramIntegrationPage() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-bold text-white text-[11px]">
-                                    {recipient.firstName ? `${recipient.firstName} ${recipient.lastName || ''}` : 'Telegram Chat'}
+                                    {recipient.recipientName 
+                                      ? recipient.recipientName 
+                                      : recipient.firstName 
+                                        ? `${recipient.firstName} ${recipient.lastName || ''}` 
+                                        : 'Telegram Chat'}
                                   </p>
-                                  <p className="text-[9px] text-zinc-500 mt-0.5">
-                                    {recipient.username ? `@${recipient.username}` : `Chat ID: ${recipient.chatId}`}
+                                  <p className="text-[9px] text-zinc-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                    <span>{recipient.username ? `@${recipient.username}` : `Chat ID: ${recipient.chatId}`}</span>
+                                    {recipient.connectionMethod && (
+                                      <span className="text-[7.5px] font-bold text-zinc-500 px-1 py-0.2 bg-zinc-900 border border-zinc-800 rounded uppercase tracking-wider shrink-0">
+                                        {recipient.connectionMethod}
+                                      </span>
+                                    )}
                                   </p>
                                 </div>
                               </div>
