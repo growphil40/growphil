@@ -12,17 +12,20 @@ function decodeJwt(token: string): DecodedToken | null {
   try {
     const base64Url = token.split('.')[1];
     if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4 !== 0) {
+      base64 += '=';
+    }
     const jsonPayload = atob(base64);
     const decoded = JSON.parse(jsonPayload);
     
     // Check if token is expired (with 10s buffer)
     if (decoded && decoded.exp && decoded.exp > Date.now() / 1000 + 10) {
       return {
-        userId: decoded.userId,
-        role: decoded.role,
-        tenantId: decoded.tenantId,
-        tenantType: decoded.tenantType,
+        userId: decoded.userId || decoded.id || '',
+        role: decoded.role || '',
+        tenantId: decoded.tenantId || '',
+        tenantType: decoded.tenantType || 'agency',
       };
     }
     return null;

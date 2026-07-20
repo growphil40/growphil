@@ -27,12 +27,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === 'agency_admin') {
-        window.location.href = '/agency/dashboard';
-      } else if (user.role === 'client_owner' || user.role === 'super_admin') {
-        window.location.href = '/client/leads';
-      } else {
-        window.location.href = '/';
+      const targetUrl = user.role === 'agency_admin' 
+        ? '/agency/dashboard' 
+        : (user.role === 'client_owner' || user.role === 'super_admin') 
+          ? '/client/leads' 
+          : '/';
+      if (window.location.pathname !== targetUrl) {
+        window.location.href = targetUrl;
       }
     }
   }, [user]);
@@ -50,14 +51,13 @@ export default function LoginPage() {
     }
 
     try {
-      const user = await login(email, password, rememberMe);
-      if (user.role === 'agency_admin') {
-        window.location.href = '/agency/dashboard';
-      } else if (user.role === 'client_owner' || user.role === 'super_admin') {
-        window.location.href = '/client/leads';
-      } else {
-        window.location.href = '/';
-      }
+      const loggedInUser = await login(email, password, rememberMe);
+      const targetUrl = loggedInUser.role === 'agency_admin' 
+        ? '/agency/dashboard' 
+        : (loggedInUser.role === 'client_owner' || loggedInUser.role === 'super_admin') 
+          ? '/client/leads' 
+          : '/';
+      window.location.href = targetUrl;
     } catch (err: any) {
       const errCode = err.response?.data?.code || err.response?.data?.errorDetails?.code || err.response?.data?.error?.code;
       if (errCode === 'EMAIL_NOT_VERIFIED') {

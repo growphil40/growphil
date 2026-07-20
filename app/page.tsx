@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { useTheme } from "./ThemeProvider";
 import {
@@ -436,12 +437,12 @@ export default function SaaSLandingPage() {
             >
               {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
             </button>
-            <a
-              href="https://growphil.vercel.app/login"
+            <Link
+              href="/login"
               className="text-sm font-semibold text-text-secondary hover:text-text-primary transition-colors px-4 py-2"
             >
               Sign In
-            </a>
+            </Link>
             <a
               href="#pricing"
               className="text-sm font-semibold bg-primary hover:bg-blue-600 text-white rounded-xl px-5 py-2.5 transition-premium shadow-md shadow-primary/20 hover:scale-[1.02]"
@@ -516,12 +517,12 @@ export default function SaaSLandingPage() {
                 </a>
                 <div className="h-px bg-border my-2" />
                 <div className="flex flex-col gap-3">
-                  <a
-                    href="https://growphil.vercel.app/login"
+                  <Link
+                    href="/login"
                     className="w-full text-center py-2.5 rounded-xl border border-border text-text-primary font-medium bg-background/50"
                   >
                     Sign In
-                  </a>
+                  </Link>
                   <a
                     href="#pricing"
                     onClick={() => setMobileMenuOpen(false)}
@@ -1611,12 +1612,12 @@ export default function SaaSLandingPage() {
                   <li className="flex items-center gap-2 text-text-secondary/50"><X size={14} className="shrink-0" /> <span>Workflow auto-actions</span></li>
                 </ul>
               </div>
-              <a
-                href="https://growphil.vercel.app/register"
+              <Link
+                href="/register"
                 className="w-full text-center py-3 rounded-xl border border-border bg-card-secondary hover:bg-hover font-semibold text-xs text-text-primary transition-premium"
               >
                 Get Started Free
-              </a>
+              </Link>
             </div>
 
             {/* Starter Plan Card */}
@@ -1641,12 +1642,12 @@ export default function SaaSLandingPage() {
                   <li className="flex items-center gap-2"><Check size={14} className="text-success shrink-0" /> <span>Custom field configuration</span></li>
                 </ul>
               </div>
-              <a
-                href="https://growphil.vercel.app/register?plan=starter"
+              <Link
+                href="/register?plan=starter"
                 className="w-full text-center py-3 rounded-xl border border-border bg-card-secondary hover:bg-hover font-semibold text-xs text-text-primary transition-premium"
               >
                 Choose Starter Plan
-              </a>
+              </Link>
             </div>
 
             {/* Pro Plan Card - Highlighted */}
@@ -1674,12 +1675,12 @@ export default function SaaSLandingPage() {
                   <li className="flex items-center gap-2"><Check size={14} className="text-success shrink-0" /> <span className="font-bold">Priority 24/7 Slack Support</span></li>
                 </ul>
               </div>
-              <a
-                href="https://growphil.vercel.app/register?plan=pro"
+              <Link
+                href="/register?plan=pro"
                 className="w-full text-center py-3 rounded-xl bg-primary hover:bg-blue-600 text-white font-semibold text-xs transition-premium shadow-md shadow-primary/20"
               >
                 Choose Pro Plan
-              </a>
+              </Link>
             </div>
 
           </div>

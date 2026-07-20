@@ -13,16 +13,23 @@ export interface UserSession {
 let accessToken = '';
 let currentUser: UserSession | null = null;
 
+function getCookieFlags(maxAgeSeconds?: number): string {
+  const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const secureFlag = isSecure ? '; Secure' : '';
+  const ageFlag = maxAgeSeconds !== undefined ? `; max-age=${maxAgeSeconds}` : '';
+  return `; path=/${ageFlag}; SameSite=Lax${secureFlag}`;
+}
+
 /**
- * Stores the JWT access token in memory.
+ * Stores the JWT access token in memory and cookie.
  */
 export function setAccessToken(token: string) {
   accessToken = token;
   if (typeof window !== 'undefined') {
     if (token) {
-      document.cookie = `accessToken=${token}; path=/; max-age=900; SameSite=Strict; Secure`;
+      document.cookie = `accessToken=${token}${getCookieFlags(900)}`;
     } else {
-      document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure';
+      document.cookie = `accessToken=; expires=Thu, 01 Jan 1970 00:00:00 GMT${getCookieFlags()}`;
     }
   }
 }
@@ -38,7 +45,7 @@ export function getAccessToken(): string {
 }
 
 /**
- * Stores the authenticated user profile in memory.
+ * Stores the authenticated user profile in memory and cookie.
  */
 export function setCurrentUser(user: UserSession | null, rememberMe = false) {
   currentUser = user;
@@ -46,10 +53,10 @@ export function setCurrentUser(user: UserSession | null, rememberMe = false) {
     if (user) {
       localStorage.setItem('growphil_user', JSON.stringify(user));
       const maxAge = rememberMe ? 180 * 24 * 60 * 60 : 7 * 24 * 60 * 60;
-      document.cookie = `growphil_user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${maxAge}; SameSite=Strict; Secure`;
+      document.cookie = `growphil_user=${encodeURIComponent(JSON.stringify(user))}${getCookieFlags(maxAge)}`;
     } else {
       localStorage.removeItem('growphil_user');
-      document.cookie = 'growphil_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure';
+      document.cookie = `growphil_user=; expires=Thu, 01 Jan 1970 00:00:00 GMT${getCookieFlags()}`;
     }
   }
 }
@@ -82,7 +89,7 @@ export function clearAuthSession() {
   currentUser = null;
   if (typeof window !== 'undefined') {
     localStorage.removeItem('growphil_user');
-    document.cookie = 'growphil_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = `growphil_user=; expires=Thu, 01 Jan 1970 00:00:00 GMT${getCookieFlags()}`;
+    document.cookie = `accessToken=; expires=Thu, 01 Jan 1970 00:00:00 GMT${getCookieFlags()}`;
   }
 }

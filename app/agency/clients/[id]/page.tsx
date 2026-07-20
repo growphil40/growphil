@@ -14,7 +14,7 @@ import {
   Database, ArrowLeftRight, Calendar, AlertCircle, CheckCircle2, RotateCw, 
   TrendingUp, Building2, Facebook, Key, Activity, Shield, ShieldCheck, 
   ShieldAlert, Users, BarChart3, Wallet, Layers, Grid, ChevronRight, 
-  Info, ExternalLink, Sliders, Play, Pause, Globe, Target, Eye, 
+  Info, ExternalLink, Sliders, Play, Pause, Globe, Target, Eye, EyeOff, Lock,
   MousePointerClick, X, DollarSign, FileText, Clock, User, CheckCircle, AlertTriangle
 } from 'lucide-react';
 
@@ -79,8 +79,15 @@ export default function ClientDetailPage() {
   const [email, setEmail] = useState('');
   const [metaPageId, setMetaPageId] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
   const [connectingMeta, setConnectingMeta] = useState(false);
+
+  // Client Password change state
+  const [newClientPassword, setNewClientPassword] = useState('');
+  const [confirmClientPassword, setConfirmClientPassword] = useState('');
+  const [showClientPassword, setShowClientPassword] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   // Meta Dashboard Telemetry State
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -410,6 +417,44 @@ export default function ClientDetailPage() {
       addToast('Failed to auto-save client details.', 'error');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleChangeClientPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!newClientPassword) {
+      setPasswordError('Please enter a new password.');
+      return;
+    }
+
+    if (newClientPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newClientPassword !== confirmClientPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    try {
+      setUpdatingPassword(true);
+      await api.put(`/v1/agency/clients/${clientId}/password`, {
+        password: newClientPassword,
+      });
+      setPasswordSuccess('Client password updated successfully!');
+      setNewClientPassword('');
+      setConfirmClientPassword('');
+      addToast('Client owner password changed successfully!', 'success');
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || 'Failed to update client password.';
+      setPasswordError(msg);
+      addToast(msg, 'error');
+    } finally {
+      setUpdatingPassword(false);
     }
   };
 
@@ -1496,45 +1541,118 @@ export default function ClientDetailPage() {
 
   const renderClientSettingsCard = () => {
     return (
-      <AppCard className="p-6 h-fit">
-        <h2 className="text-sm font-extrabold text-foreground uppercase tracking-widest mb-6">Client Settings</h2>
+      <div className="space-y-6">
+        <AppCard className="p-6 h-fit">
+          <h2 className="text-sm font-extrabold text-foreground uppercase tracking-widest mb-6">Client Settings</h2>
 
-        {clientUpdateError && (
-          <div className="mb-6 rounded-2xl p-4 text-xs border text-center bg-red-500/10 border-red-500/20 text-red-500 font-semibold animate-in fade-in duration-200">
-            {clientUpdateError}
-          </div>
-        )}
+          {clientUpdateError && (
+            <div className="mb-6 rounded-2xl p-4 text-xs border text-center bg-red-500/10 border-red-500/20 text-red-500 font-semibold animate-in fade-in duration-200">
+              {clientUpdateError}
+            </div>
+          )}
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[10px] text-muted mb-2 font-bold uppercase tracking-widest">Business Name</label>
-            <input
-              type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              onBlur={() => handleAutoSaveClientInfo('businessName', businessName)}
-              className="w-full rounded-2xl border border-border bg-card text-foreground px-4.5 py-3 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-premium"
-              disabled={isUpdating}
-            />
-          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] text-muted mb-2 font-bold uppercase tracking-widest">Business Name</label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                onBlur={() => handleAutoSaveClientInfo('businessName', businessName)}
+                className="w-full rounded-2xl border border-border bg-card text-foreground px-4.5 py-3 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-premium"
+                disabled={isUpdating}
+              />
+            </div>
 
-          <div>
-            <label className="block text-[10px] text-muted mb-2 font-bold uppercase tracking-widest">Email Address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => handleAutoSaveClientInfo('email', email)}
-              className="w-full rounded-2xl border border-border bg-card text-foreground px-4.5 py-3 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-premium"
-              disabled={isUpdating}
-            />
+            <div>
+              <label className="block text-[10px] text-muted mb-2 font-bold uppercase tracking-widest">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => handleAutoSaveClientInfo('email', email)}
+                className="w-full rounded-2xl border border-border bg-card text-foreground px-4.5 py-3 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-premium"
+                disabled={isUpdating}
+              />
+            </div>
+            
+            <p className="text-[10px] text-muted font-semibold italic mt-2">
+              Note: Changes to client info are auto-saved on input blur (clicking outside the field).
+            </p>
           </div>
-          
-          <p className="text-[10px] text-muted font-semibold italic mt-2">
-            Note: Changes to client info are auto-saved on input blur (clicking outside the field).
+        </AppCard>
+
+        {/* Client Security / Password Reset Card */}
+        <AppCard className="p-6 h-fit">
+          <div className="flex items-center gap-2 mb-4">
+            <Lock className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-extrabold text-foreground uppercase tracking-widest">Client Account Password</h2>
+          </div>
+          <p className="text-xs text-muted mb-4">
+            Directly update the login password for this client owner ({client?.email || email}).
           </p>
-        </div>
-      </AppCard>
+
+          {passwordError && (
+            <div className="mb-4 rounded-2xl p-3.5 text-xs border text-center bg-red-500/10 border-red-500/20 text-red-500 font-semibold animate-in fade-in duration-200">
+              {passwordError}
+            </div>
+          )}
+
+          {passwordSuccess && (
+            <div className="mb-4 rounded-2xl p-3.5 text-xs border text-center bg-emerald-500/10 border-emerald-500/20 text-emerald-400 font-semibold animate-in fade-in duration-200">
+              {passwordSuccess}
+            </div>
+          )}
+
+          <form onSubmit={handleChangeClientPassword} className="space-y-4">
+            <div>
+              <label className="block text-[10px] text-muted mb-2 font-bold uppercase tracking-widest">
+                New Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showClientPassword ? 'text' : 'password'}
+                  value={newClientPassword}
+                  onChange={(e) => setNewClientPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full rounded-2xl border border-border bg-card text-foreground pl-4 pr-11 py-3 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-premium"
+                  disabled={updatingPassword}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowClientPassword(!showClientPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground p-1 transition-colors"
+                >
+                  {showClientPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-muted mb-2 font-bold uppercase tracking-widest">
+                Confirm New Password
+              </label>
+              <input
+                type={showClientPassword ? 'text' : 'password'}
+                value={confirmClientPassword}
+                onChange={(e) => setConfirmClientPassword(e.target.value)}
+                placeholder="Re-enter new password"
+                className="w-full rounded-2xl border border-border bg-card text-foreground px-4 py-3 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-premium"
+                disabled={updatingPassword}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              loading={updatingPassword}
+              disabled={updatingPassword || !newClientPassword}
+              className="w-full py-3 rounded-xl text-xs font-bold uppercase tracking-wider mt-2"
+            >
+              {updatingPassword ? 'Updating Password...' : 'Update Client Password'}
+            </Button>
+          </form>
+        </AppCard>
+      </div>
     );
   };
 
