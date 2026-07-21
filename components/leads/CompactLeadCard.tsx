@@ -171,7 +171,7 @@ export const CompactLeadCard: React.FC<CompactLeadCardProps> = ({
         </button>
       </div>
 
-      {/* Row 2: Phone + Source & City + Reminder Status */}
+      {/* Row 2: Phone & City + Reminder Status */}
       <div className="flex items-center justify-between text-xs text-slate-400 gap-2">
         <div className="flex items-center gap-2 min-w-0 truncate">
           <span className="font-semibold text-slate-200 truncate">
@@ -181,11 +181,6 @@ export const CompactLeadCard: React.FC<CompactLeadCardProps> = ({
             <span className="text-[10px] text-slate-500 flex items-center gap-0.5 truncate">
               <MapPin className="h-3 w-3 shrink-0" />
               {cleanText(lead.city)}
-            </span>
-          )}
-          {lead.source && (
-            <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-slate-300 shrink-0">
-              {lead.source.replace('_', ' ')}
             </span>
           )}
         </div>
