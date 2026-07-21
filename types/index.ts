@@ -74,6 +74,10 @@ export interface Lead {
   createdAt: string;
   updatedAt: string;
   assignedUser?: Partial<User> | null;
+  nextFollowUp?: FollowUp | null;
+  followUps?: FollowUp[];
+  callAttempts?: number;
+  lastCallResult?: string | null;
 }
 
 export interface FollowUp {

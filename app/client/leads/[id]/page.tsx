@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
+import Link from 'next/link';
 import { api } from '../../../../lib/api';
-import { Lead, FollowUp, ActivityLog, Sale } from '../../../../types';
+import { Lead, FollowUp, ActivityLog, Sale, LeadStage } from '../../../../types';
 import { 
   User, 
   Mail, 
@@ -15,9 +16,14 @@ import {
   Activity, 
   Clock, 
   Tag, 
-  UserCheck, 
-  Briefcase 
+  ArrowLeft,
+  MessageCircle,
+  Plus,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
+import { FiPhoneCall } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
 
 interface LeadDetailExtended extends Lead {
   followUps: FollowUp[];
@@ -25,7 +31,27 @@ interface LeadDetailExtended extends Lead {
   sales: Sale[];
 }
 
-type TabType = 'overview' | 'notes' | 'followups' | 'activities' | 'sales' | 'timeline';
+type TabType = 'timeline' | 'customer' | 'reminders' | 'notes' | 'sales';
+
+const STAGE_LABELS: Record<string, string> = {
+  NEW: 'New',
+  CONTACTED: 'F1 (Connected)',
+  CALL_NOT_ATTENDED: 'Call Not Attended',
+  FOLLOW_UP: 'F2 (Follow Up)',
+  QUALIFIED: 'F3 (Follow Up)',
+  NEGOTIATION: 'Proposal',
+  WON: 'Won',
+  LOST: 'Lost',
+  BOOKED: 'Booked',
+  NO_NEED: 'No Need',
+  WRONG_LEAD: 'Wrong Lead',
+};
+
+const cleanText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  let cleaned = text.replace(/<[^>]*>/g, '');
+  return cleaned.replace(/[<>]/g, '');
+};
 
 export default function LeadDetailPage() {
   const params = useParams();
@@ -36,7 +62,7 @@ export default function LeadDetailPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFoundTriggered, setNotFoundTriggered] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>('timeline');
 
   if (notFoundTriggered) {
     notFound();
@@ -49,12 +75,10 @@ export default function LeadDetailPage() {
   const [scheduledAt, setScheduledAt] = useState('');
   const [followUpNote, setFollowUpNote] = useState('');
   const [isSubmittingFollowUp, setIsSubmittingFollowUp] = useState(false);
-  const [followUpSuccess, setFollowUpSuccess] = useState<string | null>(null);
 
   const [saleAmount, setSaleAmount] = useState('');
   const [saleCurrency, setSaleCurrency] = useState('INR');
   const [isSubmittingSale, setIsSubmittingSale] = useState(false);
-  const [saleSuccess, setSaleSuccess] = useState<string | null>(null);
 
   const fetchLeadDetails = async () => {
     try {
@@ -83,7 +107,7 @@ export default function LeadDetailPage() {
     const nextStage = e.target.value;
     try {
       await api.patch(`/v1/leads/${leadId}/stage`, { stage: nextStage });
-      fetchLeadDetails(); // Reload history
+      fetchLeadDetails();
     } catch (err: any) {
       alert(err.response?.data?.error?.message || 'Failed to update lead stage');
     }
@@ -107,8 +131,6 @@ export default function LeadDetailPage() {
 
   const handleScheduleFollowUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFollowUpSuccess(null);
-
     if (!scheduledAt) {
       alert('Please select a date and time.');
       return;
@@ -118,12 +140,10 @@ export default function LeadDetailPage() {
       setIsSubmittingFollowUp(true);
       await api.post(`/v1/leads/${leadId}/follow-ups`, {
         scheduledAt: new Date(scheduledAt).toISOString(),
-        note: followUpNote,
+        note: followUpNote || undefined,
       });
-
       setScheduledAt('');
       setFollowUpNote('');
-      setFollowUpSuccess('Follow-up successfully scheduled!');
       fetchLeadDetails();
     } catch (err: any) {
       alert(err.response?.data?.error?.message || 'Failed to schedule follow-up.');
@@ -134,24 +154,19 @@ export default function LeadDetailPage() {
 
   const handleRecordSale = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaleSuccess(null);
-
-    if (!saleAmount || isNaN(Number(saleAmount)) || Number(saleAmount) <= 0) {
+    if (!saleAmount || parseFloat(saleAmount) <= 0) {
       alert('Please enter a valid sale amount.');
       return;
     }
 
     try {
       setIsSubmittingSale(true);
-      await api.post(`/v1/sales`, {
+      await api.post('/v1/sales', {
         leadId,
-        amount: Number(saleAmount),
+        amount: parseFloat(saleAmount),
         currency: saleCurrency,
-        closedAt: new Date().toISOString(),
       });
-
       setSaleAmount('');
-      setSaleSuccess('Sale recorded successfully!');
       fetchLeadDetails();
     } catch (err: any) {
       alert(err.response?.data?.error?.message || 'Failed to record sale.');
@@ -160,481 +175,424 @@ export default function LeadDetailPage() {
     }
   };
 
-  // Compile unified timeline items
-  const timelineItems = useMemo(() => {
+  // Construct Chronological Timeline Events
+  const chronologicalTimeline = useMemo(() => {
     if (!lead) return [];
+    const events: Array<{ id: string; title: string; desc?: string; date: Date; type: 'creation' | 'activity' | 'reminder' | 'sale' }> = [];
 
-    const items: { id: string; type: string; title: string; details: React.ReactNode; time: Date }[] = [];
-
-    // 1. Creation Entry
-    items.push({
-      id: 'creation',
-      type: 'creation',
+    // Lead Creation Event
+    events.push({
+      id: `created-${lead.id}`,
       title: 'Lead Created',
-      details: `Lead added to pipeline. Assigned Stage: ${lead.stage}`,
-      time: new Date(lead.createdAt)
+      desc: `Lead registered via ${lead.source || 'MANUAL'} channel.`,
+      date: new Date(lead.createdAt),
+      type: 'creation',
     });
 
-    // 2. Google Sheets sync Entry
-    if (lead.leadSource === 'GOOGLE_SHEETS') {
-      items.push({
-        id: 'google-sheets-import',
-        type: 'import',
-        title: 'Imported from Google Sheets',
-        details: `Synced automatically via CRM connector. Mapped fields recorded.`,
-        time: new Date(lead.createdAt)
+    // Activity Logs
+    if (Array.isArray(lead.activityLogs)) {
+      lead.activityLogs.forEach((log) => {
+        events.push({
+          id: log.id,
+          title: log.action.replace('_', ' ').toUpperCase(),
+          desc: log.newValue ? `Updated to: ${log.newValue}` : log.oldValue ? `Previous: ${log.oldValue}` : undefined,
+          date: new Date(log.createdAt),
+          type: 'activity',
+        });
       });
     }
 
-    // 3. Activity Logs (Stage changes & notes)
-    lead.activityLogs.forEach((log) => {
-      if (log.action === 'stage_change') {
-        items.push({
-          id: log.id,
-          type: 'stage_change',
-          title: 'Stage Changed',
-          details: `Pipeline stage shifted from ${log.oldValue || 'None'} to ${log.newValue || 'None'}.`,
-          time: new Date(log.createdAt)
+    // Follow-ups
+    if (Array.isArray(lead.followUps)) {
+      lead.followUps.forEach((fu) => {
+        events.push({
+          id: fu.id,
+          title: `Reminder Scheduled: ${fu.status.toUpperCase()}`,
+          desc: fu.note ? `Note: ${fu.note}` : `Scheduled for: ${new Date(fu.scheduledAt).toLocaleString()}`,
+          date: new Date(fu.createdAt),
+          type: 'reminder',
         });
-      } else if (log.action === 'note') {
-        items.push({
-          id: log.id,
-          type: 'note',
-          title: 'Note Added',
-          details: log.newValue || 'No note content',
-          time: new Date(log.createdAt)
-        });
-      } else if (log.action === 'follow_up_outcome') {
-        items.push({
-          id: log.id,
-          type: 'follow_up',
-          title: 'Follow-up Task Completed',
-          details: `Outcome: ${log.newValue || 'Completed'}`,
-          time: new Date(log.createdAt)
-        });
-      } else if (log.action === 'imported_from_google_sheets') {
-        const info = log.newValue ? JSON.parse(log.newValue) : {};
-        items.push({
-          id: log.id,
-          type: 'import',
-          title: 'Imported from Google Sheets',
-          details: info.message || `Synced from spreadsheet "${info.spreadsheetName}" tab "${info.sheetName}".`,
-          time: new Date(log.createdAt)
-        });
-      } else if (log.action === 'lead_updated_from_google_sheets') {
-        let isOldJson = false;
-        let isNewJson = false;
-        let oldObj: any = null;
-        let newObj: any = null;
-
-        try {
-          if (log.oldValue && (log.oldValue.trim().startsWith('{') || log.oldValue.trim().startsWith('['))) {
-            oldObj = JSON.parse(log.oldValue);
-            isOldJson = true;
-          }
-        } catch (e) {}
-
-        try {
-          if (log.newValue && (log.newValue.trim().startsWith('{') || log.newValue.trim().startsWith('['))) {
-            newObj = JSON.parse(log.newValue);
-            isNewJson = true;
-          }
-        } catch (e) {}
-
-        let detailsNode: React.ReactNode = `Google Sheets synchronization updated.`;
-
-        if (isOldJson && isNewJson && oldObj && newObj && typeof oldObj === 'object' && typeof newObj === 'object') {
-          const allKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)]));
-          const changes: { key: string; from: any; to: any }[] = [];
-
-          allKeys.forEach((key) => {
-            if (['id', 'clientId', 'agencyId', 'createdAt', 'updatedAt', 'customFields', 'leadSource', 'status', 'createdBy'].includes(key)) return;
-
-            const fromVal = oldObj[key];
-            const toVal = newObj[key];
-
-            if (JSON.stringify(fromVal) !== JSON.stringify(toVal)) {
-              changes.push({
-                key,
-                from: fromVal !== undefined && fromVal !== null ? String(fromVal) : '(empty)',
-                to: toVal !== undefined && toVal !== null ? String(toVal) : '(empty)',
-              });
-            }
-          });
-
-          const oldCustom = oldObj.customFields || {};
-          const newCustom = newObj.customFields || {};
-          const allCustomKeys = Array.from(new Set([...Object.keys(oldCustom), ...Object.keys(newCustom)]));
-
-          allCustomKeys.forEach((key) => {
-            const fromVal = oldCustom[key];
-            const toVal = newCustom[key];
-
-            if (JSON.stringify(fromVal) !== JSON.stringify(toVal)) {
-              changes.push({
-                key: `Custom Field (${key})`,
-                from: fromVal !== undefined && fromVal !== null ? String(fromVal) : '(empty)',
-                to: toVal !== undefined && toVal !== null ? String(toVal) : '(empty)',
-              });
-            }
-          });
-
-          if (changes.length > 0) {
-            detailsNode = (
-              <div className="mt-1 space-y-1 text-[11px] leading-normal">
-                {changes.map((change, idx) => (
-                  <div key={idx} className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-text-secondary/70 font-mono capitalize">{change.key.replace(/([A-Z])/g, ' $1')}:</span>
-                    <span className="text-red-400 line-through truncate max-w-[120px] font-medium" title={change.from}>{change.from}</span>
-                    <span className="text-text-secondary/40">➔</span>
-                    <span className="text-emerald-450 font-bold truncate max-w-[150px]" title={change.to}>{change.to}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          } else {
-            detailsNode = `Google Sheets synchronization completed (no value changes).`;
-          }
-        }
-
-        items.push({
-          id: log.id,
-          type: 'import',
-          title: 'Google Sheets Updated Lead',
-          details: detailsNode,
-          time: new Date(log.createdAt)
-        });
-      }
-    });
-
-    // 4. Follow ups Scheduled
-    lead.followUps.forEach((task) => {
-      items.push({
-        id: task.id,
-        type: 'follow_up',
-        title: 'Follow-up Scheduled',
-        details: `Scheduled task for ${new Date(task.scheduledAt).toLocaleString()}. Note: ${task.note || 'None'}`,
-        time: new Date(task.createdAt)
       });
-    });
+    }
 
-    // 5. Sales closed
-    lead.sales.forEach((sale) => {
-      items.push({
-        id: sale.id,
-        type: 'sale',
-        title: 'Sale Recorded',
-        details: `Closed sale deal worth ${sale.amount} ${sale.currency}.`,
-        time: new Date(sale.createdAt)
+    // Sales
+    if (Array.isArray(lead.sales)) {
+      lead.sales.forEach((s) => {
+        events.push({
+          id: s.id,
+          title: `Sale Recorded: ${s.currency} ${s.amount}`,
+          desc: `Closed on ${new Date(s.closedAt).toLocaleDateString()}`,
+          date: new Date(s.createdAt),
+          type: 'sale',
+        });
       });
-    });
+    }
 
-    // Sort descending by time
-    return items.sort((a, b) => b.time.getTime() - a.time.getTime());
+    return events.sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [lead]);
 
-  if (loading && !lead) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (error) {
+  if (error || !lead) {
     return (
-      <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-6 text-sm text-red-400 text-center">
-        {error}
-        <button onClick={() => router.push('/client/leads')} className="block mx-auto mt-4 text-xs underline text-indigo-400 hover:text-indigo-300">
-          Return to pipeline
+      <div className="p-6 text-center space-y-4">
+        <p className="text-rose-400 text-sm">{error || 'Lead not found.'}</p>
+        <button onClick={() => router.back()} className="text-xs text-indigo-400 underline">
+          Go Back
         </button>
       </div>
     );
   }
 
-  const STAGE_LABELS: Record<string, string> = {
-    NEW: 'New',
-    CONTACTED: 'Contacted',
-    CALL_NOT_ATTENDED: 'Call Not Attended',
-    FOLLOW_UP: 'Follow Up',
-    QUALIFIED: 'Qualified',
-    NEGOTIATION: 'Negotiation',
-    WON: 'Won Deal',
-    LOST: 'Lost Deal',
-    BOOKED: 'Booked',
-    NO_NEED: 'No Need',
-    WRONG_LEAD: 'Wrong Lead',
-  };
-
   return (
-    <div className="space-y-8 pb-12 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/80 pb-6">
-        <div>
-          <h1 className="text-[48px] font-bold text-white tracking-tight leading-none font-display">
-            {lead?.name}
-          </h1>
-          <p className="text-text-secondary text-sm mt-2 font-mono">
-            Lead ID: {lead?.id} • Source Type: {lead?.leadSource || 'GOOGLE_SHEETS'}
-          </p>
+    <div className="max-w-4xl mx-auto space-y-5 pb-24 text-slate-100 font-sans">
+      {/* Top Nav Bar */}
+      <div className="flex items-center justify-between border-b border-slate-900 pb-3">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Leads
+        </button>
+        <span className="text-[10px] font-mono text-slate-500">ID: {lead.id}</span>
+      </div>
+
+      {/* Hero Customer Header Card */}
+      <div className="p-5 rounded-3xl border border-slate-800 bg-slate-900/80 space-y-4 shadow-xl relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Lead Profile</span>
+            <h1 className="text-2xl font-black text-white tracking-tight">{cleanText(lead.name)}</h1>
+            <p className="text-xs text-slate-400 mt-0.5">Created {new Date(lead.createdAt).toLocaleDateString()}</p>
+          </div>
+
+          {/* Stage Dropdown Selector */}
+          <div className="w-full sm:w-auto">
+            <select
+              value={lead.stage}
+              onChange={handleStageChange}
+              className="w-full sm:w-auto text-xs font-bold uppercase tracking-wider rounded-2xl border border-indigo-500/40 bg-indigo-950/40 text-indigo-300 px-4 py-2.5 focus:outline-none cursor-pointer"
+            >
+              {Object.entries(STAGE_LABELS).map(([value, label]) => (
+                <option key={value} value={value} className="bg-slate-950 text-white">
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-text-secondary font-bold uppercase tracking-wider">Pipeline Stage</span>
-          <select
-            value={lead?.stage}
-            onChange={handleStageChange}
-            className="bg-card text-white text-xs border border-border rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-primary cursor-pointer font-bold"
-          >
-            {Object.entries(STAGE_LABELS)
-              .sort((a, b) => a[1].localeCompare(b[1]))
-              .map(([val, label]) => (
-                <option key={val} value={val} className="bg-zinc-900 text-white">{label}</option>
-              ))}
-          </select>
+        {/* Quick Contact & Action Buttons */}
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+          {lead.phone && (
+            <>
+              <a
+                href={`tel:${lead.phone}`}
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-indigo-500/30 bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 text-xs font-bold transition-all"
+              >
+                <FiPhoneCall className="h-4 w-4" />
+                Call Customer
+              </a>
+              <a
+                href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 text-xs font-bold transition-all"
+              >
+                <FaWhatsapp className="h-4 w-4 text-emerald-400" />
+                WhatsApp Direct
+              </a>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Main 3-Column Layout: 25% / 50% / 25% */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        
-        {/* LEFT COLUMN (25%): Profile Card, Custom Parameters, Meta Details */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Profile Card / Contact Info */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-premium-card space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Contact Info</h2>
-            <div className="space-y-3.5 text-xs">
-              <div className="space-y-0.5">
-                <span className="text-[10px] text-text-secondary uppercase font-bold tracking-wider">Email Address</span>
-                <p className="font-semibold text-white truncate" title={lead?.email ?? undefined}>{lead?.email || 'N/A'}</p>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-[10px] text-text-secondary uppercase font-bold tracking-wider">Phone Number</span>
-                <p className="font-semibold text-white">{lead?.phone || 'N/A'}</p>
-              </div>
-            </div>
-          </div>
+      {/* Tabs Bar */}
+      <div className="flex border-b border-slate-800/80 overflow-x-auto no-scrollbar gap-1">
+        <button
+          onClick={() => setActiveTab('timeline')}
+          className={`px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
+            activeTab === 'timeline'
+              ? 'border-indigo-500 text-indigo-400'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          Activity Timeline ({chronologicalTimeline.length})
+        </button>
 
-          {/* Custom Parameters */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-premium-card space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Custom Fields</h2>
-            <div className="space-y-3.5 text-xs text-text-secondary font-semibold">
-              <div className="flex justify-between">
-                <span>City</span>
-                <span className="text-white font-bold">{lead?.city || '—'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Source Label</span>
-                <span className="text-white font-bold">{lead?.source || '—'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Created By</span>
-                <span className="text-white font-bold capitalize">{lead?.createdBy?.toLowerCase() || 'system'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Status</span>
-                <span className="text-success font-bold">{lead?.status || 'ACTIVE'}</span>
-              </div>
-            </div>
-          </div>
+        <button
+          onClick={() => setActiveTab('customer')}
+          className={`px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
+            activeTab === 'customer'
+              ? 'border-indigo-500 text-indigo-400'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          Customer Details
+        </button>
 
-          {/* Meta Details */}
-          {lead && (lead.metaLeadId || lead.campaignName || lead.pageName) && (
-            <div className="rounded-3xl border border-border bg-card p-6 shadow-premium-card space-y-4">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Meta Ad Details</h2>
-              <div className="space-y-3.5 text-xs text-text-secondary">
-                {lead.metaLeadId && (
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] uppercase tracking-wider font-bold">Meta Lead ID</span>
-                    <p className="font-mono text-[10px] text-white select-all">{lead.metaLeadId}</p>
+        <button
+          onClick={() => setActiveTab('reminders')}
+          className={`px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
+            activeTab === 'reminders'
+              ? 'border-indigo-500 text-indigo-400'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          Reminders ({lead.followUps?.length || 0})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('notes')}
+          className={`px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
+            activeTab === 'notes'
+              ? 'border-indigo-500 text-indigo-400'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          Notes
+        </button>
+
+        <button
+          onClick={() => setActiveTab('sales')}
+          className={`px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
+            activeTab === 'sales'
+              ? 'border-indigo-500 text-indigo-400'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          Sales Logs ({lead.sales?.length || 0})
+        </button>
+      </div>
+
+      {/* Tab Content 1: Chronological Activity Timeline */}
+      {activeTab === 'timeline' && (
+        <div className="p-5 rounded-3xl border border-slate-800 bg-slate-900/60 space-y-4">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Chronological Event Timeline</h3>
+
+          <div className="relative pl-6 space-y-5 border-l border-slate-800">
+            {chronologicalTimeline.map((item) => (
+              <div key={item.id} className="relative group">
+                {/* Timeline Dot */}
+                <div className="absolute -left-[31px] top-1 h-4 w-4 rounded-full bg-slate-950 border-2 border-indigo-500 flex items-center justify-center">
+                  <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-white">{item.title}</p>
+                    <span className="text-[10px] text-slate-500">{item.date.toLocaleString()}</span>
                   </div>
-                )}
-                {lead.campaignName && (
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] uppercase tracking-wider font-bold">Campaign</span>
-                    <p className="text-white font-semibold">{lead.campaignName}</p>
-                  </div>
-                )}
-                {lead.pageName && (
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] uppercase tracking-wider font-bold">Facebook Page</span>
-                    <p className="text-white font-semibold">{lead.pageName}</p>
-                  </div>
-                )}
+                  {item.desc && (
+                    <p className="text-xs text-slate-400 mt-1 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                      {item.desc}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+
+            {chronologicalTimeline.length === 0 && (
+              <p className="text-xs text-slate-500 italic">No timeline events recorded.</p>
+            )}
+          </div>
         </div>
+      )}
 
-        {/* CENTER COLUMN (50%): Notes, Activity Feed, Timeline */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Notes logger form + history list */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-premium-card space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Notes Log</h2>
-            <form onSubmit={handleAddNote} className="flex gap-2">
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Log a new detail note..."
+      {/* Tab Content 2: Customer Details */}
+      {activeTab === 'customer' && (
+        <div className="p-5 rounded-3xl border border-slate-800 bg-slate-900/60 space-y-4 text-xs">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Customer Meta Information</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+              <span className="text-[10px] uppercase font-bold text-slate-500">Phone Contact</span>
+              <p className="font-semibold text-white mt-1">{lead.phone ? cleanText(lead.phone) : '—'}</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+              <span className="text-[10px] uppercase font-bold text-slate-500">Email Address</span>
+              <p className="font-semibold text-white mt-1">{lead.email || '—'}</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+              <span className="text-[10px] uppercase font-bold text-slate-500">City / Location</span>
+              <p className="font-semibold text-white mt-1">{lead.city ? cleanText(lead.city) : '—'}</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+              <span className="text-[10px] uppercase font-bold text-slate-500">Lead Acquisition Channel</span>
+              <p className="font-semibold text-white mt-1">{lead.source ? lead.source.replace('_', ' ') : 'MANUAL'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content 3: Reminders Form & List */}
+      {activeTab === 'reminders' && (
+        <div className="space-y-4">
+          <form onSubmit={handleScheduleFollowUp} className="p-5 rounded-3xl border border-slate-800 bg-slate-900/60 space-y-3 text-xs">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Schedule Next Follow-up</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Date & Time</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Instructions / Note</label>
+                <input
+                  type="text"
+                  value={followUpNote}
+                  onChange={(e) => setFollowUpNote(e.target.value)}
+                  placeholder="e.g. Call regarding quotation update"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="submit"
+                disabled={isSubmittingFollowUp}
+                className="px-4 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg text-xs"
+              >
+                Set Reminder
+              </button>
+            </div>
+          </form>
+
+          {/* Active Reminders List */}
+          <div className="p-5 rounded-3xl border border-slate-800 bg-slate-900/60 space-y-3 text-xs">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Follow-up History</h3>
+
+            <div className="space-y-2">
+              {lead.followUps?.map((fu) => (
+                <div key={fu.id} className="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/60 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-white">{new Date(fu.scheduledAt).toLocaleString()}</p>
+                    {fu.note && <p className="text-slate-400 text-xs mt-0.5">{fu.note}</p>}
+                  </div>
+                  <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase ${
+                    fu.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  }`}>
+                    {fu.status}
+                  </span>
+                </div>
+              ))}
+              {(!lead.followUps || lead.followUps.length === 0) && (
+                <p className="text-slate-500 italic">No reminders scheduled yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content 4: Notes */}
+      {activeTab === 'notes' && (
+        <div className="space-y-4">
+          <form onSubmit={handleAddNote} className="p-5 rounded-3xl border border-slate-800 bg-slate-900/60 space-y-3 text-xs">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Add Sales Note</h3>
+            <textarea
+              required
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Type call outcome or customer requirements..."
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white focus:outline-none focus:border-indigo-500 h-24 resize-none"
+            />
+            <div className="flex justify-end">
+              <button
+                type="submit"
                 disabled={isSubmittingNote}
-                className="flex-1 rounded-xl border border-border bg-card-secondary px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-primary"
-              />
-              <button
-                type="submit"
-                disabled={isSubmittingNote || !note.trim()}
-                className="rounded-xl bg-primary hover:brightness-110 px-4 py-2.5 text-xs font-bold text-black transition-all cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-xs"
               >
-                Log
+                Add Note
               </button>
-            </form>
-
-            <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-              {lead?.activityLogs
-                .filter((log) => log.action === 'note')
-                .map((log) => (
-                  <div key={log.id} className="p-3 rounded-xl border border-border/60 bg-card-secondary/50 text-xs">
-                    <div className="flex justify-between text-[10px] text-text-secondary mb-1 font-bold">
-                      <span>{new Date(log.createdAt).toLocaleString()}</span>
-                      <span>By Teammate</span>
-                    </div>
-                    <p className="text-slate-200 whitespace-pre-wrap">{log.newValue}</p>
-                  </div>
-                ))}
-              {lead?.activityLogs.filter(log => log.action === 'note').length === 0 && (
-                <p className="text-text-secondary text-xs italic">No notes logged yet.</p>
-              )}
             </div>
-          </div>
-
-          {/* Activity Timeline */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-premium-card space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Chronological Activity</h2>
-            <div className="relative border-l border-border ml-2 pl-4 space-y-6 max-h-[400px] overflow-y-auto pr-1">
-              {timelineItems.map((item) => (
-                <div key={item.id} className="relative">
-                  {/* Dot */}
-                  <div className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border border-card ${
-                    item.type === 'creation' ? 'bg-primary' :
-                    item.type === 'import' ? 'bg-secondary animate-pulse' :
-                    item.type === 'stage_change' ? 'bg-warning' :
-                    item.type === 'note' ? 'bg-text-secondary' :
-                    item.type === 'follow_up' ? 'bg-purple-400' :
-                    'bg-success'
-                  }`} />
-                  
-                  <span className="text-[10px] font-bold text-text-secondary">{new Date(item.time).toLocaleString()}</span>
-                  <h4 className="text-xs font-bold text-white mt-0.5">{item.title}</h4>
-                  <div className="text-xs text-text-secondary mt-1 bg-card-secondary/40 p-2.5 rounded-xl border border-border/40">
-                    {item.details}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          </form>
         </div>
+      )}
 
-        {/* RIGHT COLUMN (25%): Tasks & Revenue */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Tasks / Follow ups */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-premium-card space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Follow-up Tasks</h2>
-            {followUpSuccess && (
-              <div className="rounded-xl bg-success/15 border border-success/20 p-2.5 text-[11px] text-success text-center">
-                {followUpSuccess}
-              </div>
-            )}
-            <form onSubmit={handleScheduleFollowUp} className="space-y-3 text-xs">
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-                className="w-full rounded-xl border border-border bg-card-secondary px-3 py-2 text-white focus:outline-none focus:border-primary cursor-pointer"
-              />
-              <textarea
-                value={followUpNote}
-                onChange={(e) => setFollowUpNote(e.target.value)}
-                placeholder="Follow-up instructions..."
-                className="w-full rounded-xl border border-border bg-card-secondary px-3 py-2 text-white focus:outline-none h-14 resize-none"
-              />
-              <button
-                type="submit"
-                disabled={isSubmittingFollowUp || !scheduledAt}
-                className="w-full rounded-xl bg-primary hover:brightness-110 py-2 font-bold text-black cursor-pointer transition-all disabled:opacity-50 text-xs"
-              >
-                {isSubmittingFollowUp ? 'Scheduling...' : 'Schedule Task'}
-              </button>
-            </form>
+      {/* Tab Content 5: Sales Logs */}
+      {activeTab === 'sales' && (
+        <div className="space-y-4">
+          <form onSubmit={handleRecordSale} className="p-5 rounded-3xl border border-slate-800 bg-slate-900/60 space-y-3 text-xs">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Record Deal Sale</h3>
 
-            <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1 pt-2 border-t border-border/50">
-              {lead?.followUps.map((task) => (
-                <div key={task.id} className="p-2.5 rounded-xl border border-border bg-card-secondary text-xs">
-                  <div className="flex justify-between font-bold text-text-secondary text-[10px] mb-1">
-                    <span>{new Date(task.scheduledAt).toLocaleDateString()}</span>
-                    <span className="uppercase text-[8px] px-1 bg-card border border-border rounded font-bold">{task.status}</span>
-                  </div>
-                  <p className="text-slate-300 italic truncate">{task.note || 'No instruction notes.'}</p>
-                </div>
-              ))}
-              {lead?.followUps.length === 0 && (
-                <p className="text-text-secondary text-xs italic">No follow-ups scheduled.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Revenue */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-premium-card space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-success">Deal Value / Sales</h2>
-            {saleSuccess && (
-              <div className="rounded-xl bg-success/15 border border-success/20 p-2.5 text-[11px] text-success text-center">
-                {saleSuccess}
-              </div>
-            )}
-            <form onSubmit={handleRecordSale} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Amount</label>
                 <input
                   type="number"
+                  required
                   value={saleAmount}
                   onChange={(e) => setSaleAmount(e.target.value)}
-                  placeholder="Amount"
-                  className="w-full rounded-xl border border-border bg-card-secondary px-3 py-2 text-white focus:outline-none focus:border-primary"
+                  placeholder="e.g. 50000"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Currency</label>
                 <select
                   value={saleCurrency}
                   onChange={(e) => setSaleCurrency(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-card-secondary px-3 py-2 text-white focus:outline-none focus:border-primary"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-white focus:outline-none"
                 >
                   <option value="INR">INR (₹)</option>
                   <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
                 </select>
               </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
               <button
                 type="submit"
-                disabled={isSubmittingSale || !saleAmount}
-                className="w-full rounded-xl bg-success hover:brightness-110 py-2 font-bold text-white cursor-pointer transition-all disabled:opacity-50 text-xs"
+                disabled={isSubmittingSale}
+                className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all text-xs"
               >
-                Record Won Deal
+                Record Closed Sale
               </button>
-            </form>
+            </div>
+          </form>
 
-            <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1 pt-2 border-t border-border/50">
-              {lead?.sales.map((sale) => (
-                <div key={sale.id} className="p-2.5 rounded-xl border border-border bg-card-secondary text-xs flex justify-between items-center">
+          <div className="p-5 rounded-3xl border border-slate-800 bg-slate-900/60 space-y-3 text-xs">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Closed Sales Records</h3>
+
+            <div className="space-y-2">
+              {lead.sales?.map((s) => (
+                <div key={s.id} className="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/60 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] text-text-secondary font-bold">{new Date(sale.closedAt).toLocaleDateString()}</p>
-                    <span className="text-[8px] font-mono text-text-secondary">ID: {sale.id.substring(0, 6)}</span>
+                    <p className="font-extrabold text-emerald-400 text-sm">{s.currency} {s.amount.toLocaleString()}</p>
+                    <p className="text-slate-400 text-xs mt-0.5">Closed on {new Date(s.closedAt).toLocaleDateString()}</p>
                   </div>
-                  <span className="text-success font-bold text-[13px]">{sale.currency} {Number(sale.amount).toLocaleString()}</span>
+                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
+                    WON DEAL
+                  </span>
                 </div>
               ))}
-              {lead?.sales.length === 0 && (
-                <p className="text-text-secondary text-xs italic">No sales recorded.</p>
+              {(!lead.sales || lead.sales.length === 0) && (
+                <p className="text-slate-500 italic">No sales recorded for this lead yet.</p>
               )}
             </div>
           </div>
         </div>
-
-      </div>
+      )}
     </div>
   );
 }

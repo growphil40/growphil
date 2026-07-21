@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { Lead, LeadStage } from '../types';
 
 export interface LeadsFilter {
-  stage?: LeadStage | '';
+  stage?: LeadStage | '' | 'TODAY_DUE' | 'OVERDUE' | 'UPCOMING' | string;
   assignedTo?: string;
   search?: string;
   source?: string;
@@ -35,20 +35,48 @@ export function useLeads(initialFilters: LeadsFilter = { page: 1, limit: 20 }) {
       setLoading(true);
       setError(null);
 
-      // Clean empty string filters
+      // Clean empty string filters and omit frontend-only filters
       const cleanFilters: any = {};
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== '') {
-          cleanFilters[key] = value;
+          if (key === 'stage' && (value === 'TODAY_DUE' || value === 'OVERDUE' || value === 'UPCOMING')) {
+            // Frontend filter only
+          } else {
+            cleanFilters[key] = value;
+          }
         }
       });
 
-      const response = await api.get('/v1/leads', { params: cleanFilters });
+      const [leadsRes, followUpsRes] = await Promise.allSettled([
+        api.get('/v1/leads', { params: cleanFilters }),
+        api.get('/v1/follow-ups', { params: { status: 'pending' } })
+      ]);
       
-      setLeads(response.data.data);
-      if (response.data.meta) {
-        setMeta(response.data.meta);
+      let fetchedLeads: Lead[] = [];
+      if (leadsRes.status === 'fulfilled') {
+        fetchedLeads = leadsRes.value.data.data || [];
+        if (leadsRes.value.data.meta) {
+          setMeta(leadsRes.value.data.meta);
+        }
+      } else {
+        throw leadsRes.reason;
       }
+
+      if (followUpsRes.status === 'fulfilled' && Array.isArray(followUpsRes.value.data?.data)) {
+        const followUps = followUpsRes.value.data.data;
+        const followUpMap = new Map<string, any>();
+        followUps.forEach((fu: any) => {
+          if (!followUpMap.has(fu.leadId) || new Date(fu.scheduledAt) < new Date(followUpMap.get(fu.leadId).scheduledAt)) {
+            followUpMap.set(fu.leadId, fu);
+          }
+        });
+        fetchedLeads = fetchedLeads.map((lead) => ({
+          ...lead,
+          nextFollowUp: followUpMap.get(lead.id) || null,
+        }));
+      }
+
+      setLeads(fetchedLeads);
     } catch (err: any) {
       const errMsg = err.response?.data?.error?.message || 'Failed to fetch leads.';
       setError(errMsg);
@@ -125,8 +153,15 @@ export function useLeads(initialFilters: LeadsFilter = { page: 1, limit: 20 }) {
     });
   }, []);
 
+  const attachFollowUpToLead = useCallback((leadId: string, followUp: any) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, nextFollowUp: followUp } : l))
+    );
+  }, []);
+
   return {
     leads,
+    setLeads,
     loading,
     error,
     meta,
@@ -134,6 +169,7 @@ export function useLeads(initialFilters: LeadsFilter = { page: 1, limit: 20 }) {
     setFilters,
     refreshLeads: fetchLeads,
     prependLead,
+    attachFollowUpToLead,
     updateLeadStage: updateStageOptimistically,
     deleteLead,
     deleteLeads,
