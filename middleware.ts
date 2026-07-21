@@ -48,9 +48,26 @@ export async function middleware(request: NextRequest) {
     token = authHeader.substring(7);
   }
 
-  // Decode the token to get session info without signature verification
-  // Signature verification is performed by the backend API on every data request
-  const user = token ? decodeJwt(token) : null;
+  // Decode token or fallback to growphil_user cookie for active session
+  let user = token ? decodeJwt(token) : null;
+
+  if (!user) {
+    const userCookie = request.cookies.get('growphil_user')?.value;
+    if (userCookie) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(userCookie));
+        if (parsed && parsed.role) {
+          user = {
+            userId: parsed.id || '',
+            role: parsed.role,
+            tenantId: parsed.tenantId || '',
+            tenantType: parsed.tenantType || 'client',
+          };
+        }
+      } catch {}
+    }
+  }
+
   const isAuthenticated = !!user;
 
   const isProtectedRoute = pathname.startsWith('/agency') || pathname.startsWith('/client');

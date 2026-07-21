@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { ShieldCheck, Database, Zap, ArrowRight, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../../ThemeProvider';
 
+import { getAccessToken } from '../../../lib/auth';
+
 export default function LoginPage() {
   const { login, user, error: authError, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -26,7 +28,10 @@ export default function LoginPage() {
   const [resendError, setResendError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
+    if (user && !loading) {
+      const token = getAccessToken();
+      if (!token) return; // Do not auto-redirect if access token is missing
+
       const targetUrl = user.role === 'agency_admin' 
         ? '/agency/dashboard' 
         : (user.role === 'client_owner' || user.role === 'super_admin') 
@@ -36,7 +41,7 @@ export default function LoginPage() {
         window.location.href = targetUrl;
       }
     }
-  }, [user]);
+  }, [user, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

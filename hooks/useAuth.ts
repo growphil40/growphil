@@ -86,7 +86,7 @@ export function useAuth() {
       globalRefreshPromise = api.post('/v1/auth/refresh');
       const response = await globalRefreshPromise;
       const { accessToken, expiresInDays } = response.data.data;
-      setAccessToken(accessToken);
+      setAccessToken(accessToken, expiresInDays > 7);
       
       const decoded = decodeJwt(accessToken);
       if (decoded) {
@@ -137,7 +137,7 @@ export function useAuth() {
       const { accessToken, refreshToken, user: loggedUser, expiresInDays } = response.data.data;
 
       // Store tokens and set state
-      setAccessToken(accessToken);
+      setAccessToken(accessToken, expiresInDays > 7);
       
       const userPayload: UserSession = {
         id: loggedUser.id,

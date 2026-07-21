@@ -23,11 +23,12 @@ function getCookieFlags(maxAgeSeconds?: number): string {
 /**
  * Stores the JWT access token in memory and cookie.
  */
-export function setAccessToken(token: string) {
+export function setAccessToken(token: string, rememberMe = false) {
   accessToken = token;
   if (typeof window !== 'undefined') {
     if (token) {
-      document.cookie = `accessToken=${token}${getCookieFlags(900)}`;
+      const maxAge = rememberMe ? 180 * 24 * 60 * 60 : 7 * 24 * 60 * 60;
+      document.cookie = `accessToken=${token}${getCookieFlags(maxAge)}`;
     } else {
       document.cookie = `accessToken=; expires=Thu, 01 Jan 1970 00:00:00 GMT${getCookieFlags()}`;
     }
