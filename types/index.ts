@@ -71,6 +71,12 @@ export interface Lead {
   pageName?: string | null;
   adAccountName?: string | null;
   metaCreatedAt?: string | null;
+  customFields?: Record<string, any> | null;
+  proposalSentAt?: string | null;
+  proposalSalesperson?: string | null;
+  proposalNotes?: string | null;
+  lastActivityAt?: string;
+  lastActivityType?: string | null;
   createdAt: string;
   updatedAt: string;
   assignedUser?: Partial<User> | null;

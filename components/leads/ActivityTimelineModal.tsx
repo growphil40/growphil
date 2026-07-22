@@ -153,13 +153,13 @@ const DEFAULT_CONFIG: ActivityTypeConfig = {
 
 const STAGE_BADGE: Record<string, { label: string; color: string }> = {
   NEW: { label: 'New', color: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400' },
-  CONTACTED: { label: 'F1 (Connected)', color: 'border-amber-500/40 bg-amber-500/10 text-amber-400' },
+  CONTACTED: { label: 'Connected', color: 'border-amber-500/40 bg-amber-500/10 text-amber-400' },
   CALL_NOT_ATTENDED: { label: 'Call Not Attended', color: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400' },
-  FOLLOW_UP: { label: 'F2 (Follow Up)', color: 'border-blue-500/40 bg-blue-500/10 text-blue-400' },
-  QUALIFIED: { label: 'F3 (Follow Up)', color: 'border-indigo-500/40 bg-indigo-500/10 text-indigo-400' },
+  FOLLOW_UP: { label: 'Follow Up (F1)', color: 'border-blue-500/40 bg-blue-500/10 text-blue-400' },
+  QUALIFIED: { label: 'Follow Up (F2)', color: 'border-indigo-500/40 bg-indigo-500/10 text-indigo-400' },
   NEGOTIATION: { label: 'Proposal', color: 'border-purple-500/40 bg-purple-500/10 text-purple-400' },
   WON: { label: 'Won', color: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' },
-  LOST: { label: 'Lost', color: 'border-red-500/40 bg-red-500/10 text-red-400' },
+  LOST: { label: 'Follow Up (F3)', color: 'border-red-500/40 bg-red-500/10 text-red-400' },
   BOOKED: { label: 'Booked', color: 'border-rose-500/40 bg-rose-500/10 text-rose-400' },
   NO_NEED: { label: 'No Need', color: 'border-slate-500/40 bg-slate-500/10 text-slate-400' },
   WRONG_LEAD: { label: 'Wrong Lead', color: 'border-orange-500/40 bg-orange-500/10 text-orange-400' },

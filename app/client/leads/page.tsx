@@ -38,13 +38,13 @@ import { ActivityTimelineModal } from '@/components/leads/ActivityTimelineModal'
 
 const STAGES: { value: LeadStage; label: string }[] = [
   { value: 'NEW', label: 'New' },
-  { value: 'CONTACTED', label: 'F1 (Connected)' },
+  { value: 'CONTACTED', label: 'Connected' },
   { value: 'NEGOTIATION', label: 'Proposal' },
-  { value: 'FOLLOW_UP', label: 'F2 (Follow Up)' },
-  { value: 'QUALIFIED', label: 'F3 (Follow Up)' },
+  { value: 'FOLLOW_UP', label: 'Follow Up (F1)' },
+  { value: 'QUALIFIED', label: 'Follow Up (F2)' },
+  { value: 'LOST', label: 'Follow Up (F3)' },
   { value: 'BOOKED', label: 'Booked' },
   { value: 'WON', label: 'Won' },
-  { value: 'LOST', label: 'Lost' },
   { value: 'NO_NEED', label: 'No Need' },
   { value: 'WRONG_LEAD', label: 'Wrong Lead' }
 ];
@@ -238,6 +238,18 @@ export default function LeadsPage() {
     const handleLeadStageChanged = (payload: any) => {
       console.log('[Socket] Received lead:stage_changed', payload);
       addToast(`🔄 Lead stage changed to ${payload.newStage}`, 'success');
+      setLeads((prev: Lead[]) =>
+        prev.map((l: Lead) =>
+          l.id === payload.leadId
+            ? {
+                ...l,
+                stage: payload.newStage,
+                lastActivityAt: new Date().toISOString(),
+                lastActivityType: 'Auto-Move to ' + payload.newStage,
+              }
+            : l
+        )
+      );
     };
 
     socket.on('lead:new', handleLeadNew);
@@ -267,7 +279,17 @@ export default function LeadsPage() {
     window.location.href = `tel:${lead.phone}`;
 
     // Setup focus listener to pop bottom sheet when returning to app
-    const handleFocusReturn = () => {
+    const handleFocusReturn = async () => {
+      let activeLead = lead;
+      if (lead.stage === 'NEW') {
+        try {
+          await updateLeadStage(lead.id, 'CONTACTED');
+          activeLead = { ...lead, stage: 'CONTACTED' };
+          setCallingLead(activeLead);
+        } catch (err) {
+          console.error('Failed to auto-transition new lead to connected', err);
+        }
+      }
       setIsCallResultOpen(true);
       window.removeEventListener('focus', handleFocusReturn);
     };
@@ -533,7 +555,7 @@ export default function LeadsPage() {
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`px-3.5 py-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
-            showFilters || Boolean(filters.source || filters.city)
+            showFilters || Boolean(filters.source || filters.city || filters.startDate || filters.endDate)
               ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
               : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
           }`}
@@ -549,7 +571,7 @@ export default function LeadsPage() {
           <div className="flex items-center justify-between">
             <h4 className="font-bold uppercase tracking-wider text-slate-300 text-[10px]">Advanced Filters</h4>
             <button
-              onClick={() => setFilters({ page: 1, limit: 100, search: '', stage: '', source: '', city: '' })}
+              onClick={() => setFilters({ page: 1, limit: 100, search: '', stage: '', source: '', city: '', startDate: '', endDate: '' })}
               className="text-[10px] text-rose-400 hover:underline cursor-pointer"
             >
               Clear All
@@ -579,6 +601,26 @@ export default function LeadsPage() {
                 onChange={(e) => setFilters((prev) => ({ ...prev, city: e.target.value, page: 1 }))}
                 placeholder="e.g. Chennai"
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-white text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Start Date</label>
+              <input
+                type="date"
+                value={filters.startDate || ''}
+                onChange={(e) => setFilters((prev) => ({ ...prev, startDate: e.target.value, page: 1 }))}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-white text-xs [color-scheme:dark]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">End Date</label>
+              <input
+                type="date"
+                value={filters.endDate || ''}
+                onChange={(e) => setFilters((prev) => ({ ...prev, endDate: e.target.value, page: 1 }))}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-white text-xs [color-scheme:dark]"
               />
             </div>
           </div>
@@ -625,6 +667,7 @@ export default function LeadsPage() {
               <ManagerKanbanView
                 leads={filteredLeads}
                 onUpdateStage={updateLeadStage}
+                onCallClick={handleInitiateCall}
                 onOpenReminder={(id, name) => {
                   const target = leads.find(l => l.id === id);
                   if (target) {

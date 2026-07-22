@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AppCard } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Send, RotateCw, Calendar, PhoneCall, AlertCircle, CheckCircle2, FileText, TrendingUp, Users, PhoneOff, BarChart2 } from 'lucide-react';
+import { Send, RotateCw, Calendar, PhoneCall, AlertCircle, CheckCircle2, FileText, TrendingUp, Users, PhoneOff, BarChart2, Clock } from 'lucide-react';
 import { Lead, User } from '../../types';
 
 interface OperationalDashboardViewProps {
@@ -29,26 +29,49 @@ export const OperationalDashboardView: React.FC<OperationalDashboardViewProps> =
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  // Calculate Operational Metrics
-  const todaysLeads = leads.filter(l => new Date(l.createdAt) >= startOfToday && new Date(l.createdAt) <= endOfToday).length;
+  // Calculate new 10-Stage counts
+  const stageCounts = {
+    NEW: leads.filter(l => l.stage === 'NEW').length,
+    CONTACTED: leads.filter(l => l.stage === 'CONTACTED').length,
+    NEGOTIATION: leads.filter(l => l.stage === 'NEGOTIATION').length,
+    FOLLOW_UP: leads.filter(l => l.stage === 'FOLLOW_UP').length,
+    QUALIFIED: leads.filter(l => l.stage === 'QUALIFIED').length,
+    LOST: leads.filter(l => l.stage === 'LOST').length,
+    BOOKED: leads.filter(l => l.stage === 'BOOKED').length,
+    WON: leads.filter(l => l.stage === 'WON').length,
+    NO_NEED: leads.filter(l => l.stage === 'NO_NEED').length,
+    WRONG_LEAD: leads.filter(l => l.stage === 'WRONG_LEAD').length,
+  };
 
-  let todaysFollowUps = 0;
-  let overdueCalls = 0;
+  // 1. Auto Moved Today
+  const autoMovedToday = leads.filter(l => {
+    if (!l.customFields?.autoMovedAt) return false;
+    const date = new Date(l.customFields.autoMovedAt);
+    return date >= startOfToday && date <= endOfToday;
+  }).length;
 
-  leads.forEach(l => {
-    if (l.nextFollowUp && l.nextFollowUp.status === 'pending' && l.nextFollowUp.scheduledAt) {
-      const scheduled = new Date(l.nextFollowUp.scheduledAt);
-      if (scheduled >= startOfToday && scheduled <= endOfToday) {
-        todaysFollowUps++;
-      } else if (scheduled < startOfToday) {
-        overdueCalls++;
-      }
-    }
-  });
+  // 2. Pending Auto Moves
+  const pendingAutoMoves = leads.filter(l => 
+    ['NEGOTIATION', 'FOLLOW_UP', 'QUALIFIED'].includes(l.stage)
+  ).length;
 
-  const proposalPending = leads.filter(l => l.stage === 'NEGOTIATION').length;
-  const wonToday = leads.filter(l => l.stage === 'WON' && new Date(l.updatedAt) >= startOfToday).length;
-  const lostToday = leads.filter(l => l.stage === 'LOST' && new Date(l.updatedAt) >= startOfToday).length;
+  // 3. Average Proposal Age
+  const proposalLeads = leads.filter(l => l.stage === 'NEGOTIATION' && l.proposalSentAt);
+  const avgProposalAge = proposalLeads.length > 0
+    ? (proposalLeads.reduce((sum, l) => sum + (now.getTime() - new Date(l.proposalSentAt!).getTime()), 0) / proposalLeads.length / (1000 * 60 * 60)).toFixed(1) + ' hrs'
+    : '0.0 hrs';
+
+  // 4. Average Follow-up Time
+  const leadsWithFollowUp = leads.filter(l => l.nextFollowUp?.scheduledAt);
+  const avgFollowUpTime = leadsWithFollowUp.length > 0
+    ? (leadsWithFollowUp.reduce((sum, l) => sum + Math.abs(new Date(l.nextFollowUp!.scheduledAt).getTime() - new Date(l.createdAt).getTime()), 0) / leadsWithFollowUp.length / (1000 * 60 * 60 * 24)).toFixed(1) + ' days'
+    : '0.0 days';
+
+  // 5. Average Response Time
+  const connectedLeads = leads.filter(l => l.customFields?.connectedAt);
+  const avgResponseTime = connectedLeads.length > 0
+    ? (connectedLeads.reduce((sum, l) => sum + (new Date(l.customFields!.connectedAt).getTime() - new Date(l.createdAt).getTime()), 0) / connectedLeads.length / (1000 * 60)).toFixed(0) + ' mins'
+    : '0 mins';
 
   // Call Attempt Analytics & Call Not Attended Stats
   let totalAttemptsSum = 0;
@@ -95,79 +118,121 @@ export const OperationalDashboardView: React.FC<OperationalDashboardViewProps> =
         </div>
       </div>
 
-      {/* Operational Metrics Cards (6-Grid) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Today's Leads */}
-        <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
-          <div className="text-indigo-400 flex items-center justify-between mb-2">
-            <Users className="h-4 w-4" />
-            <span className="text-xs font-mono font-bold">NEW</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Today's Leads</p>
-            <h3 className="text-2xl font-black text-white tracking-tight mt-1">{todaysLeads}</h3>
-          </div>
-        </AppCard>
+      {/* 10-Stage Pipeline Counters */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Pipeline Stage Distribution</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2.5">
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-cyan-400 uppercase font-mono truncate max-w-full">New</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.NEW}</h4>
+          </AppCard>
 
-        {/* Today's Follow-ups */}
-        <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
-          <div className="text-amber-400 flex items-center justify-between mb-2">
-            <Calendar className="h-4 w-4" />
-            <span className="text-xs font-mono font-bold">DUE</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Today's Follow-ups</p>
-            <h3 className="text-2xl font-black text-amber-400 tracking-tight mt-1">{todaysFollowUps}</h3>
-          </div>
-        </AppCard>
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-amber-400 uppercase font-mono truncate max-w-full">Connected</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.CONTACTED}</h4>
+          </AppCard>
 
-        {/* Overdue Calls */}
-        <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
-          <div className="text-rose-400 flex items-center justify-between mb-2">
-            <AlertCircle className="h-4 w-4" />
-            <span className="text-xs font-mono font-bold">ALERT</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overdue Calls</p>
-            <h3 className="text-2xl font-black text-rose-400 tracking-tight mt-1">{overdueCalls}</h3>
-          </div>
-        </AppCard>
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-purple-400 uppercase font-mono truncate max-w-full">Proposal</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.NEGOTIATION}</h4>
+          </AppCard>
 
-        {/* Today's Call Not Attended */}
-        <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
-          <div className="text-yellow-400 flex items-center justify-between mb-2">
-            <PhoneOff className="h-4 w-4" />
-            <span className="text-xs font-mono font-bold">CNA</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Call Not Attended</p>
-            <h3 className="text-2xl font-black text-yellow-400 tracking-tight mt-1">{todaysCnaCount}</h3>
-          </div>
-        </AppCard>
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-blue-400 uppercase font-mono truncate max-w-full">Follow Up F1</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.FOLLOW_UP}</h4>
+          </AppCard>
 
-        {/* Proposal Pending */}
-        <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
-          <div className="text-purple-400 flex items-center justify-between mb-2">
-            <FileText className="h-4 w-4" />
-            <span className="text-xs font-mono font-bold">DEALS</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Proposal Pending</p>
-            <h3 className="text-2xl font-black text-purple-400 tracking-tight mt-1">{proposalPending}</h3>
-          </div>
-        </AppCard>
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-indigo-400 uppercase font-mono truncate max-w-full">Follow Up F2</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.QUALIFIED}</h4>
+          </AppCard>
 
-        {/* Won Today */}
-        <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
-          <div className="text-emerald-400 flex items-center justify-between mb-2">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="text-xs font-mono font-bold">WON</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Won Today</p>
-            <h3 className="text-2xl font-black text-emerald-400 tracking-tight mt-1">{wonToday}</h3>
-          </div>
-        </AppCard>
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-rose-400 uppercase font-mono truncate max-w-full">Follow Up F3</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.LOST}</h4>
+          </AppCard>
+
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-pink-400 uppercase font-mono truncate max-w-full">Booked</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.BOOKED}</h4>
+          </AppCard>
+
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-emerald-400 uppercase font-mono truncate max-w-full">Won</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.WON}</h4>
+          </AppCard>
+
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-slate-400 uppercase font-mono truncate max-w-full">No Need</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.NO_NEED}</h4>
+          </AppCard>
+
+          <AppCard className="p-3 bg-slate-900/60 border-slate-800 flex flex-col justify-between items-center text-center" hoverEffect={false}>
+            <span className="text-[10px] font-bold text-orange-400 uppercase font-mono truncate max-w-full">Wrong Lead</span>
+            <h4 className="text-xl font-black text-white mt-1">{stageCounts.WRONG_LEAD}</h4>
+          </AppCard>
+        </div>
+      </div>
+
+      {/* Intelligent Automation Metrics Grid */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Workflow Intelligence</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
+            <div className="text-amber-400 flex items-center justify-between mb-2">
+              <TrendingUp className="h-4 w-4" />
+              <span className="text-[9px] font-mono font-extrabold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">AUTO</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Auto Moved Today</p>
+              <h3 className="text-2xl font-black text-white tracking-tight mt-1">{autoMovedToday}</h3>
+            </div>
+          </AppCard>
+
+          <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
+            <div className="text-indigo-400 flex items-center justify-between mb-2">
+              <Clock className="h-4 w-4" />
+              <span className="text-[9px] font-mono font-extrabold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">PENDING</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Auto Moves</p>
+              <h3 className="text-2xl font-black text-white tracking-tight mt-1">{pendingAutoMoves}</h3>
+            </div>
+          </AppCard>
+
+          <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
+            <div className="text-purple-400 flex items-center justify-between mb-2">
+              <FileText className="h-4 w-4" />
+              <span className="text-[9px] font-mono font-extrabold bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">AGE</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Proposal Age</p>
+              <h3 className="text-2xl font-black text-white tracking-tight mt-1">{avgProposalAge}</h3>
+            </div>
+          </AppCard>
+
+          <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
+            <div className="text-blue-400 flex items-center justify-between mb-2">
+              <Calendar className="h-4 w-4" />
+              <span className="text-[9px] font-mono font-extrabold bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">FOLLOW-UP</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Follow-up Time</p>
+              <h3 className="text-2xl font-black text-white tracking-tight mt-1">{avgFollowUpTime}</h3>
+            </div>
+          </AppCard>
+
+          <AppCard className="p-4 bg-slate-900/60 border-slate-800 flex flex-col justify-between" hoverEffect={false}>
+            <div className="text-cyan-400 flex items-center justify-between mb-2">
+              <PhoneCall className="h-4 w-4" />
+              <span className="text-[9px] font-mono font-extrabold bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">SPEED</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Response Time</p>
+              <h3 className="text-2xl font-black text-white tracking-tight mt-1">{avgResponseTime}</h3>
+            </div>
+          </AppCard>
+        </div>
       </div>
 
       {/* Call Attempt Analytics Panel */}

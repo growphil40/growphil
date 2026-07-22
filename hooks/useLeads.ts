@@ -39,8 +39,8 @@ export function useLeads(initialFilters: LeadsFilter = { page: 1, limit: 20 }) {
       const cleanFilters: any = {};
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== '') {
-          if (key === 'stage' && (value === 'TODAY_DUE' || value === 'OVERDUE' || value === 'UPCOMING')) {
-            // Frontend filter only
+          if (key === 'stage') {
+            // Stage is handled 100% on the frontend so counts/blinking are preserved
           } else {
             cleanFilters[key] = value;
           }

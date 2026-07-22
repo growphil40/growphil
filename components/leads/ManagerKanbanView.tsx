@@ -4,13 +4,15 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Layers, Bell, Trash2, Phone, MessageCircle, PhoneCall, Clock } from 'lucide-react';
 import { Lead, LeadStage } from '../../types';
+import { api } from '../../lib/api';
 
 const STAGES: { value: LeadStage; label: string; dotColor: string }[] = [
   { value: 'NEW', label: 'New', dotColor: 'bg-cyan-400' },
-  { value: 'CONTACTED', label: 'F1 (Connected)', dotColor: 'bg-amber-400' },
+  { value: 'CONTACTED', label: 'Connected', dotColor: 'bg-amber-400' },
   { value: 'NEGOTIATION', label: 'Proposal', dotColor: 'bg-purple-400' },
-  { value: 'FOLLOW_UP', label: 'F2 (Follow Up)', dotColor: 'bg-blue-400' },
-  { value: 'QUALIFIED', label: 'F3 (Follow Up)', dotColor: 'bg-indigo-400' },
+  { value: 'FOLLOW_UP', label: 'Follow Up (F1)', dotColor: 'bg-blue-400' },
+  { value: 'QUALIFIED', label: 'Follow Up (F2)', dotColor: 'bg-indigo-400' },
+  { value: 'LOST', label: 'Follow Up (F3)', dotColor: 'bg-red-400' },
   { value: 'BOOKED', label: 'Booked', dotColor: 'bg-rose-400' },
   { value: 'WON', label: 'Won', dotColor: 'bg-emerald-400' },
   { value: 'NO_NEED', label: 'No Need', dotColor: 'bg-slate-400' },
@@ -27,6 +29,7 @@ const cleanText = (text: string | null | undefined): string => {
 interface ManagerKanbanViewProps {
   leads: Lead[];
   onUpdateStage: (leadId: string, stage: LeadStage) => void;
+  onCallClick: (lead: Lead) => void;
   onOpenReminder: (leadId: string, name: string) => void;
   onDeleteLead?: (leadId: string, name: string) => void;
   isSuperAdmin?: boolean;
@@ -38,6 +41,7 @@ interface ManagerKanbanViewProps {
 export const ManagerKanbanView: React.FC<ManagerKanbanViewProps> = ({
   leads,
   onUpdateStage,
+  onCallClick,
   onOpenReminder,
   onDeleteLead,
   isSuperAdmin = false,
@@ -158,17 +162,24 @@ export const ManagerKanbanView: React.FC<ManagerKanbanViewProps> = ({
                         <div className="flex items-center justify-between">
                           <span className="truncate">{cleanText(lead.phone)}</span>
                           <div className="flex gap-1 shrink-0">
-                            <a
-                              href={`tel:${lead.phone}`}
-                              className="p-1 rounded bg-indigo-600/15 hover:bg-indigo-600/30 text-indigo-400 transition-colors cursor-pointer"
+                            <button
+                              onClick={() => onCallClick(lead)}
+                              className="p-1 rounded bg-indigo-600/15 hover:bg-indigo-600/30 text-indigo-400 transition-colors cursor-pointer animate-pulse"
                               title="Call"
                             >
                               <Phone className="h-3 w-3" />
-                            </a>
+                            </button>
                             <a
                               href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
                               target="_blank"
                               rel="noopener noreferrer"
+                              onClick={async (e) => {
+                                try {
+                                  await api.post(`/v1/leads/${lead.id}/notes`, { note: 'WhatsApp chat opened.' });
+                                } catch (err) {
+                                  console.error('Failed to log WhatsApp click activity', err);
+                                }
+                              }}
                               className="p-1 rounded bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-400 transition-colors cursor-pointer"
                               title="WhatsApp"
                             >

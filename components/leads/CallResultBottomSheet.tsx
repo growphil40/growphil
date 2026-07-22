@@ -16,12 +16,11 @@ export interface CallStageRule {
 }
 
 export const CALL_STAGE_RULES: CallStageRule[] = [
-  { stage: 'CONTACTED', label: 'Connected → F1', badgeColor: 'border-amber-500/40 bg-amber-500/10 text-amber-400', requiresStep2: true, requiresFollowUpDateTime: true, requiresNotes: true },
+  { stage: 'CONTACTED', label: 'Connected', badgeColor: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400', requiresStep2: true, requiresFollowUpDateTime: true, requiresNotes: true, keepStage: true },
   { stage: 'CALL_NOT_ATTENDED', label: 'Call Not Attended', badgeColor: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400', requiresStep2: true, requiresFollowUpDateTime: true, requiresNotes: false, keepStage: true },
-  { stage: 'NEGOTIATION', label: 'Proposal', badgeColor: 'border-purple-500/40 bg-purple-500/10 text-purple-400', requiresStep2: true, requiresFollowUpDateTime: true, requiresNotes: true },
-  { stage: 'FOLLOW_UP', label: 'F2 (Follow Up)', badgeColor: 'border-blue-500/40 bg-blue-500/10 text-blue-400', requiresStep2: true, requiresFollowUpDateTime: true, requiresNotes: true },
-  { stage: 'QUALIFIED', label: 'F3 (Follow Up)', badgeColor: 'border-indigo-500/40 bg-indigo-500/10 text-indigo-400', requiresStep2: true, requiresFollowUpDateTime: true, requiresNotes: true },
-  { stage: 'BOOKED', label: 'Booked', badgeColor: 'border-rose-500/40 bg-rose-500/10 text-rose-400', requiresStep2: true, requiresFollowUpDateTime: true, requiresNotes: true },
+  { stage: 'NEGOTIATION', label: 'Proposal Sent', badgeColor: 'border-purple-500/40 bg-purple-500/10 text-purple-400', requiresStep2: true, requiresFollowUpDateTime: true, requiresNotes: true },
+  { stage: 'BOOKED', label: 'Booked', badgeColor: 'border-rose-500/40 bg-rose-500/10 text-rose-400', requiresStep2: true, requiresFollowUpDateTime: false, requiresNotes: true },
+  { stage: 'WON', label: 'Won', badgeColor: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400', requiresStep2: true, requiresFollowUpDateTime: false, requiresNotes: true },
   { stage: 'NO_NEED', label: 'No Need', badgeColor: 'border-slate-500/40 bg-slate-500/10 text-slate-400', requiresStep2: true, requiresFollowUpDateTime: false, requiresNotes: true },
   { stage: 'WRONG_LEAD', label: 'Wrong Lead', badgeColor: 'border-orange-500/40 bg-orange-500/10 text-orange-400', requiresStep2: true, requiresFollowUpDateTime: false, requiresNotes: true },
 ];
